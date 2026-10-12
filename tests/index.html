@@ -1,0 +1,38 @@
+<meta charset="utf-8">
+<title>引擎測試</title>
+<style>
+  body { font: 15px/1.6 "Noto Sans TC", system-ui, sans-serif; margin: 0; padding: 24px 16px; background: #F5FAFB; color: #1E2B33; }
+  h1 { font-size: 22px; margin: 0 0 12px; }
+  li { margin: 4px 0; } .ok { color: #2A9D8F; } .bad { color: #E2483D; } small { color: #5B6B75; }
+</style>
+<h1>平衡之道．引擎測試</h1>
+<p id="sum">執行中…</p>
+<ul id="out"></ul>
+<script>
+  const tests = [];
+  const fail = m => { throw new Error(m); };
+  window.__T = {
+    test: (name, fn) => tests.push({ name, fn }),
+    assert: {
+      ok: (v, m) => v || fail(m || '條件不成立'),
+      equal: (a, b, m) => a === b || fail(m || `${a} !== ${b}`)
+    },
+    E: null
+  };
+</script>
+<script src="../engine.js"></script>
+<script src="../js/camera.js"></script>
+<script>window.__T.E = window.BikeEngine; window.__T.C = window.BikeCamera;</script>
+<script src="engine.test.js"></script>
+<script>
+  let pass = 0;
+  const out = document.getElementById('out');
+  for (const t of tests) {
+    const li = document.createElement('li');
+    try { t.fn(); pass++; li.className = 'ok'; li.textContent = '✓ ' + t.name; }
+    catch (e) { li.className = 'bad'; li.innerHTML = '✗ ' + t.name + '<br><small></small>'; li.querySelector('small').textContent = e.message; }
+    out.appendChild(li);
+  }
+  document.getElementById('sum').textContent = `${pass} / ${tests.length} 通過`;
+  document.title = `${pass}/${tests.length} 引擎測試`;
+</script>
