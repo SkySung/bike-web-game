@@ -19,7 +19,7 @@ function resetRun() {
     ped: { d: -5.5, v: 0, active: false, rung: false, gone: false, judged: false }, doorOpen: false
   });
   if (c.startV) S.lastPedalT = 0;
-  cam.x = S.d;
+  cam.x = S.d; cam.rise = BikeCamera.riseTarget(ROADS[S.ch], S.x, CAM);
   S.crankVis = S.crank;
 }
 
@@ -167,13 +167,14 @@ function record(force) {
   S.lastRec = S.t;
   S.frames.push({ x: S.x, d: S.d, psi: S.psi, v: S.v, lean: S.lean, steer: S.steer, want: S.want, crankVis: S.crankVis, pitch: S.pitch,
     footDown: S.footDown, dadX: S.dadX, dadPhase: S.dadPhase, assist: S.assist, t: S.t, sig: S.sig, sigT: S.sigT,
-    pedD: S.ped.d, doorOpen: S.doorOpen, camX: cam.x });
+    pedD: S.ped.d, doorOpen: S.doorOpen, camX: cam.x, camH: BikeCamera.height(cam, CAM) });
   if (S.frames.length > 210) S.frames.shift();
 }
 
 function move(dt) {
   E.stepMove(S, CH[S.ch], ROADS[S.ch], dt);
   BikeCamera.follow(cam, S.d, dt, CAM);
+  BikeCamera.rise(cam, ROADS[S.ch], S.x, dt, CAM);
   S.crankVis += (S.crank - S.crankVis) * Math.min(1, dt * 12);
   if (S.assist > 0.05) { S.dadX = S.x - 0.3; S.dadV = S.v; }
   else { S.dadV = Math.max(0, S.dadV - 2.5 * dt); S.dadX += S.dadV * dt; }
@@ -194,6 +195,7 @@ function step(dt) {
     S.psi -= S.v * kAt(ROADS[S.ch], Math.floor(S.x)) * dt;   // 世界方向不變，只是道路在彎
     S.x += S.v * Math.cos(S.psi) * dt; S.d += S.v * Math.sin(S.psi) * dt;
     BikeCamera.follow(cam, S.d, dt, CAM);
+    BikeCamera.rise(cam, ROADS[S.ch], S.x, dt, CAM);
     record();
     if (S.crashT > 0.8) startReplay();
     return;

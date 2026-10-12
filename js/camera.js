@@ -13,7 +13,11 @@
     draw: 150,     // 可視距離（公尺）
     follow: 2.5,   // 橫向跟隨速度（每秒追上差距的比例）
     maxLag: 1.2,   // 車子最多偏離鏡頭中心幾公尺
-    elevScale: 3   // 畫面上的高低起伏放大倍數（只影響畫面，不影響物理），斜坡才看得出來
+    elevScale: 3,  // 畫面上的高低起伏放大倍數（只影響畫面，不影響物理），斜坡才看得出來
+    lookDown: 30,  // 偷看前方幾公尺有沒有下坡
+    riseMax: 2.5,  // 下坡前攝影機最多升高幾公尺
+    riseGain: 0.4, // 前方每往下掉 1 公尺（畫面上），攝影機升高多少
+    riseRate: 1.5  // 升降的平滑速度
   };
 
   function lerpAt(arr, s) {
@@ -23,13 +27,27 @@
     return a + (b - a) * t;
   }
 
-  function create(x = 0) { return { x }; }
+  function create(x = 0) { return { x, rise: 0 }; }
 
   // 橫向跟隨：鏡頭慢慢追上車子的橫向位置，但不讓車子離畫面中心太遠
   function follow(cam, d, dt, cfg = DEF) {
     cam.x += (d - cam.x) * Math.min(1, dt * cfg.follow);
     cam.x = Math.max(d - cfg.maxLag, Math.min(d + cfg.maxLag, cam.x));
   }
+
+  // 下坡視角：前方的路如果會往下掉（坡頂後面看不到），攝影機就慢慢升高，從更高的角度看下去；
+  // 主角固定在畫面同一個位置，所以攝影機越高、主角看起來越小，下坡的路面就露出來了
+  function riseTarget(road, s, cfg = DEF) {
+    const here = lerpAt(road.el, s);
+    let low = here;
+    for (let q = 5; q <= cfg.lookDown; q += 1) low = Math.min(low, lerpAt(road.el, s + q));
+    return Math.min(cfg.riseMax, (here - low) * cfg.elevScale * cfg.riseGain);
+  }
+  function rise(cam, road, s, dt, cfg = DEF) {
+    cam.rise += (riseTarget(road, s, cfg) - cam.rise) * Math.min(1, dt * cfg.riseRate);
+  }
+  // 這一幀攝影機的實際高度
+  function height(cam, cfg = DEF) { return cfg.camH + (cam.rise || 0); }
 
   // 以車子所在位置的道路切線為「正前方」，從車子的位置往前後每 1 公尺取樣道路中心在鏡頭座標的位置。
   // 車子腳下正好是一個取樣點，所以不管車子在一公尺裡的哪裡，畫面都不會晃動或跳格。
@@ -74,8 +92,8 @@
     const zc = z - d * Math.sin(th) + cfg.camD;
     if (zc < 0.35) return null;
     const sc = view.F / zc;
-    return { x: view.W / 2 + (x + d * Math.cos(th)) * sc, y: view.hor + (cfg.camH - y - h) * sc, sc, zc };
+    return { x: view.W / 2 + (x + d * Math.cos(th)) * sc, y: view.hor + ((view.camH ?? cfg.camH) - y - h) * sc, sc, zc };
   }
 
-  return { DEF, create, follow, points, project };
+  return { DEF, create, follow, riseTarget, rise, height, points, project };
 });

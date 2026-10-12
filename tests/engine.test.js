@@ -340,3 +340,25 @@ test('第 4 章下坡彎道是真正的考驗：完全不煞車會衝出去或�
   assert.ok(noBrake.every(r => !r.ok), `不煞車居然騎完了：${JSON.stringify(noBrake.map(r => r.ok))}`);
   assert.ok(brake.every(r => r.ok), `有煞車卻沒騎完：${JSON.stringify(brake.map(r => r.why + '@' + (r.x || 0).toFixed(0)))}`);
 });
+
+// ─────────────── 下坡視角 ───────────────
+test('下坡前攝影機會升高，坡頂後面的下坡路面因此露出來；平地不升高', () => {
+  const track = E.buildTrack(E.TRACKS.hills, 200);
+  const crest = 90;                                     // 第 4 章第一個坡頂
+  assert.equal(C.riseTarget(track, 5), 0, '起點前面是上坡，不該升高');
+  const rise = C.riseTarget(track, crest - 4);
+  assert.ok(rise > 1, `坡頂前只升高 ${rise.toFixed(2)} m`);
+
+  // 從坡頂前 4 公尺看坡頂後 12 公尺的路面：前面有沒有更近的路面擋住它
+  const visible = camH => {
+    const { P, base, n } = C.points(track, crest - 4, 0);
+    const F = 600 * C.DEF.camD / camH;                  // 主角固定在畫面同一個位置，攝影機越高焦距越短
+    const v = { P, base, n, F, hor: 250, W: 800, camH };
+    const target = C.project(v, crest + 12, 0);
+    let blockY = Infinity;
+    for (let s = crest - 3; s < crest + 12; s += 0.5) { const p = C.project(v, s, 0); if (p) blockY = Math.min(blockY, p.y); }
+    return blockY - target.y;                           // 正數 = 看得到，數字越大露出越多
+  };
+  const low = visible(C.DEF.camH), high = visible(C.DEF.camH + rise);
+  assert.ok(high > low, `升高後露出 ${high.toFixed(1)} px，沒升高 ${low.toFixed(1)} px`);
+});

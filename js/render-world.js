@@ -25,14 +25,17 @@ function band(xa, ya, sa, xb, yb, sb, u0, u1, col) {
 // ─────────────────────────── 偽 3D 投影 ───────────────────────────
 // 鏡頭邏輯在 camera.js：鏡頭沿著道路方向看、只在橫向跟隨車子；這裡只負責把它接到畫面上
 let V = null;
-function layout() {
+function layout(camH = CAM_H) {
   const pad = touchShown ? touchEl.offsetHeight + 4 : 0;
-  const hor = Math.round(H * 0.4);
+  // 攝影機升高時地平線也稍微往上移，下方多一點空間看下坡
+  const hor = Math.round(H * (0.4 - 0.025 * (camH - CAM_H)));
   const baseY = Math.max(hor + 60, Math.min(H * 0.88, H - pad - 6));
-  return { hor, baseY, F: (baseY - hor) * CAM_D / CAM_H };
+  // 主角固定在 baseY：攝影機越高，焦距越短，主角就越小
+  return { hor, baseY, camH, F: (baseY - hor) * CAM_D / camH };
 }
 function buildView(st) {
-  const L = layout();
+  const camH = st.camH ?? BikeCamera.height(cam, CAM);
+  const L = layout(camH);
   const camX = st.camX ?? cam.x;
   const { P, base, n } = BikeCamera.points(ROADS[S.ch], st.x, camX, CAM);
   V = { ...L, W, P, base, n, st, clip: new Array(n + 1).fill(H), glows: [] };
@@ -71,70 +74,63 @@ function drawSky(st, sc) {
   ctx.lineTo(W, hor + 1); ctx.closePath(); ctx.fill();
 }
 
-// 路面用「逐條掃描線」畫：每一條橫線算出它對應的道路距離 s，再決定顏色。
-// 直接以「實體像素」為單位一條一條畫（不是 CSS 像素）：螢幕縮放是 1.25、1.5 這類非整數倍時，
-// CSS 像素的橫線會落在兩個實體像素之間，邊緣半透明，底下的草地就會從縫裡透出來變成細橫紋。
+// 路面用和柵欄、樹一樣的真正 3D 投影（projAt）畫：每 1 公尺一格（以世界座標對齊，條紋不會跟著車子跳），
+// 每一格的四個角都投影到螢幕，由遠到近畫成多邊形，近的自然蓋住遠的（坡頂後面的路被擋住）。
+// 急彎時道路在畫面上會變成橫向，多邊形照樣正確；相鄰兩格的接縫用同色描邊封住，不會透出底色。
 function drawRoad(st, sc) {
-  const c = CH[S.ch], { P, base, hor, F } = V;
+  const c = CH[S.ch], { hor } = V;
   ctx.fillStyle = sc.ground[0]; ctx.fillRect(0, hor, W, H - hor);
   // 地平線附近的霧：先畫在背景上，路面（包括高過地平線的上坡）會蓋在它上面
   const fg = ctx.createLinearGradient(0, hor - 2, 0, hor + H * 0.07);
   fg.addColorStop(0, sc.sky[1]); fg.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = fg; ctx.fillRect(0, hor - 2, W, H * 0.07 + 2);
-  const R = cv.width / W;                           // 每個 CSS 像素有幾個實體像素
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const top = 0;                                    // 上坡可能高過地平線，所以一路畫到畫面頂端（坡會擋住天空）
-  let next = cv.height - 1;                         // 還沒畫過的最低一條實體像素橫線（由下往上畫，坡頂後面的路自然被擋住）
-  for (let j = 1; j < V.n; j++) {
-    V.clip[j] = (next + 1) / R;
-    const a = P[j - 1], b = P[j];
-    const za = a.z + CAM_D, zb = b.z + CAM_D;
-    if (za < 0.35 || zb < 0.35) continue;
-    const ya = (hor + (CAM_H - a.y) * F / za) * R, yb = (hor + (CAM_H - b.y) * F / zb) * R;
-    if (yb > next + 0.5 || ya <= yb) continue;
-    const y0 = Math.min(next, Math.floor(ya)), y1 = Math.max(top, Math.ceil(yb));
-    const Xa = a.x + sc.off * Math.cos(a.th), Xb = b.x + sc.off * Math.cos(b.th);
-    const s0 = base + j - 1;
-    for (let y = y0; y >= y1; y--) {
-      const t = Math.min(1, Math.max(0, (ya - (y + 0.5)) / (ya - yb)));   // 取這條線的中心，對 1/z 是線性的
-      const iz = 1 / za + (1 / zb - 1 / za) * t;
-      const z = 1 / iz, tz = (z - za) / (zb - za);  // 換回沿路的比例
-      const k = F * iz * R;                         // 這條線上每公尺幾個實體像素
-      drawRow(c, sc, y, cv.width / 2 + (Xa + (Xb - Xa) * tz) * k, k, s0 + tz);
+
+  // 坡頂遮擋線：由近到遠，記錄比這一段更近的路面在畫面上最高到哪（給路邊物件裁切用）
+  let runMin = H;
+  for (let j = 0; j < V.n; j++) {
+    V.clip[j] = runMin;
+    const p = projAt(V.base + j, 0, 0);
+    if (p) runMin = Math.min(runMin, p.y);
+  }
+  V.clip[V.n] = runMin;
+
+  // 一塊路面：沿路 s0..s1、相對道路中心橫向 u0..u1（公尺）
+  const quad3d = (s0, s1, u0, u1, col, seal) => {
+    const a = projAt(s0, sc.off + u0, 0), b = projAt(s0, sc.off + u1, 0), d = projAt(s1, sc.off + u1, 0), e = projAt(s1, sc.off + u0, 0);
+    if (!a || !b || !d || !e) return;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.lineTo(e.x, e.y); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill();
+    if (seal) { ctx.strokeStyle = col; ctx.stroke(); }
+  };
+  ctx.lineWidth = 1; ctx.lineJoin = 'round';
+  const camS = st.x - CAM_D + 0.5, far = st.x + DRAW - 2;
+  for (let s = Math.floor(far); s >= Math.floor(camS); s--) {
+    const s0 = Math.max(s, camS), s1 = s + 1;
+    if (s1 <= s0) continue;
+    const p = ((Math.floor(s / 2) % 2) + 2) % 2;
+    // 草地只畫道路兩旁一段範圍：高過地平線的上坡看起來是一座山丘，兩側還看得到天空和遠山
+    quad3d(s0, s1, -(sc.half + 30), sc.half + 30, sc.ground[p], true);
+    if (sc.side) quad3d(s0, s1, -(sc.half + sc.side.w), sc.half + sc.side.w, sc.side.col[p], true);
+    quad3d(s0, s1, -(sc.half + sc.rumW), sc.half + sc.rumW, sc.rumble[p], true);
+    quad3d(s0, s1, -sc.half, sc.half, sc.road[p], true);
+    if (sc.lane && p === 0) quad3d(s0, s1, -0.07, 0.07, sc.lane, true);
+    if (sc.dark) quad3d(s0, s1, 0.6, 1.4, 'rgba(160,190,230,.07)');
+    // 地面標記（與這一格重疊的部分）
+    const mark = (a, b, u0, u1, col) => { const lo = Math.max(s0, a), hi = Math.min(s1, b); if (hi > lo) quad3d(lo, hi, u0, u1, col); };
+    if (c.stops) c.stops.forEach((z0, i) => {
+      const u = -sc.off;
+      mark(z0, z0 + ZONE, u - 1.9, u + 1.9, i < S.stopIdx ? 'rgba(42,157,143,.55)' : 'rgba(244,197,66,.6)');
+      mark(z0 + ZONE, z0 + ZONE + 0.4, u - 1.9, u + 1.9, '#F4F1E8');
+    });
+    if (c.lights) c.lights.forEach(L => mark(L, L + 0.4, 0.1, sc.half - 0.1, '#F4F1E8'));
+    if (c.zebra != null) for (let u = -sc.half + 0.3; u < sc.half - 0.3; u += 1.2) mark(c.zebra, c.zebra + 4, u, u + 0.6, 'rgba(244,241,232,.9)');
+    if (s >= c.goal - 1 && s < c.goal + 2) {
+      const cells = 10, w = (2 * sc.half) / cells;
+      for (let r = 0; r < 4; r++) for (let q = 0; q < cells; q++)
+        if ((q + r) % 2 === 0) mark(c.goal + r * 0.5, c.goal + (r + 1) * 0.5, -sc.half + q * w, -sc.half + (q + 1) * w, INK);
     }
-    if (y1 <= next) next = y1 - 1;
-    if (next < top) { for (let q = j + 1; q <= V.n; q++) V.clip[q] = top / R; break; }
-  }
-  V.clip[V.n] = Math.min(V.clip[V.n], (next + 1) / R);
-  ctx.restore();
-}
-
-// 畫一條實體像素高的掃描線：cx 道路中心、k 每公尺像素、s 沿路距離（座標都是實體像素）
-function drawRow(c, sc, y, cx, k, s) {
-  const p = ((Math.floor(s / 2) % 2) + 2) % 2;
-  const span = (u0, u1, col) => { ctx.fillStyle = col; ctx.fillRect(cx + u0 * k, y, (u1 - u0) * k, 1); };
-  ctx.fillStyle = sc.ground[p]; ctx.fillRect(0, y, cv.width, 1);
-  if (sc.side) span(-(sc.half + sc.side.w), sc.half + sc.side.w, sc.side.col[p]);
-  span(-(sc.half + sc.rumW), sc.half + sc.rumW, sc.rumble[p]);
-  span(-sc.half, sc.half, sc.road[p]);
-  if (sc.lane && p === 0) span(-0.07, 0.07, sc.lane);
-  if (sc.dark) span(0.6, 1.4, 'rgba(160,190,230,.07)');
-  // 地面標記
-  if (c.stops) c.stops.forEach((z0, i) => {
-    const u = -sc.off;
-    if (s >= z0 && s < z0 + ZONE) span(u - 1.9, u + 1.9, i < S.stopIdx ? 'rgba(42,157,143,.55)' : 'rgba(244,197,66,.6)');
-    else if (s >= z0 + ZONE && s < z0 + ZONE + 0.4) span(u - 1.9, u + 1.9, '#F4F1E8');
-  });
-  if (c.lights) c.lights.forEach(L => { if (s >= L && s < L + 0.4) span(0.1, sc.half - 0.1, '#F4F1E8'); });
-  if (c.zebra != null && s >= c.zebra && s < c.zebra + 4) {
-    for (let u = -sc.half + 0.3; u < sc.half - 0.3; u += 1.2) span(u, u + 0.6, 'rgba(244,241,232,.9)');
-  }
-  if (s >= c.goal && s < c.goal + 2) {
-    const cells = 10, w = (2 * sc.half) / cells, row = Math.floor((s - c.goal) * 2);
-    for (let q = 0; q < cells; q++) if ((q + row) % 2 === 0) span(-sc.half + q * w, -sc.half + (q + 1) * w, INK);
   }
 }
-
 
 // ── 場景物件 ──
 function drawTree(p, r, dark) {
@@ -188,7 +184,7 @@ function drawWall(o) {
   }
 }
 function drawGroundOval(p, rx, col, ring) {
-  const ry = rx * CAM_H / p.zc;
+  const ry = rx * V.camH / p.zc;
   ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(p.x, p.y, rx * p.sc, Math.max(0.5, ry * p.sc), 0, 0, TAU); ctx.fill();
   if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = Math.max(0.5, 0.06 * p.sc); ctx.stroke(); }
 }
@@ -307,7 +303,7 @@ function drawSprite(o, p, st) {
     case 'paint': {
       // 畫在地上的字：依距離壓扁
       if (s < 4) return;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, Math.min(1, CAM_H / p.zc));
+      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, Math.min(1, V.camH / p.zc));
       ctx.fillStyle = '#FFFFFF'; ctx.font = `900 ${1.3 * s}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(o.i < S.stopIdx ? '✓' : '停', 0, 0); ctx.restore();
       break;
