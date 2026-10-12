@@ -17,7 +17,14 @@
     lookDown: 30,  // 偷看前方幾公尺有沒有下坡
     riseMax: 2.5,  // 下坡前攝影機最多升高幾公尺
     riseGain: 0.4, // 前方每往下掉 1 公尺（畫面上），攝影機升高多少
-    riseRate: 1.5  // 升降的平滑速度
+    riseRate: 1.5, // 升降的平滑速度
+    // 轉彎時的鏡頭：看向車子正在轉的方向（繞著鏡頭轉），並往彎道外側平移一點
+    yawGain: 0.35, // 鏡頭偏轉 = 車子轉彎速度（rad/s）× 這個係數
+    yawMax: 0.26,  // 最多偏轉約 15°
+    yawRate: 2.0,  // 平滑速度（約 0.5 秒跟上），直線上的小晃動會被濾掉
+    shiftGain: 0.5,  // 往外側平移 = 轉彎速度 × 這個係數（公尺）
+    shiftMax: 0.8,   // 最多平移 0.8 公尺
+    shiftRate: 2.0
   };
 
   function lerpAt(arr, s) {
@@ -27,7 +34,7 @@
     return a + (b - a) * t;
   }
 
-  function create(x = 0) { return { x, rise: 0 }; }
+  function create(x = 0) { return { x, rise: 0, yaw: 0, shift: 0 }; }
 
   // 橫向跟隨：鏡頭慢慢追上車子的橫向位置，但不讓車子離畫面中心太遠
   function follow(cam, d, dt, cfg = DEF) {
@@ -46,6 +53,16 @@
   function rise(cam, road, s, dt, cfg = DEF) {
     cam.rise += (riseTarget(road, s, cfg) - cam.rise) * Math.min(1, dt * cfg.riseRate);
   }
+  // 轉彎鏡頭：turn 是車子實際的轉彎速度（rad/s，+ = 往右）。
+  // 往右轉時鏡頭往右看（yaw > 0），同時往左（彎道外側）平移；回正就慢慢回來。摔車時不要呼叫，鏡頭就會停住
+  function steerLook(cam, turn, dt, cfg = DEF) {
+    const clampTo = (v, m) => Math.max(-m, Math.min(m, v));
+    const yawT = clampTo(turn * cfg.yawGain, cfg.yawMax);
+    const shiftT = clampTo(-turn * cfg.shiftGain, cfg.shiftMax);
+    cam.yaw += (yawT - cam.yaw) * Math.min(1, dt * cfg.yawRate);
+    cam.shift += (shiftT - cam.shift) * Math.min(1, dt * cfg.shiftRate);
+  }
+
   // 這一幀攝影機的實際高度
   function height(cam, cfg = DEF) { return cfg.camH + (cam.rise || 0); }
 
@@ -53,7 +70,7 @@
   // 車子腳下正好是一個取樣點，所以不管車子在一公尺裡的哪裡，畫面都不會晃動或跳格。
   // x：橫向（右正），z：相對車子的前後距離，th：該點道路相對正前方的角度，y：相對車子的高度。
   // 注意：這裡完全不用車頭方向（psi），所以轉龍頭不會讓路面跟著轉。
-  function points(road, s, camX, cfg = DEF) {
+  function points(road, s, camX, cfg = DEF, yaw = 0) {
     const k = i => (i < 0 ? 0 : road.k[i] ?? 0);
     // 曲率在 [a, b] 的積分（曲率每公尺一格，是分段常數）
     const kint = (a, b) => {
@@ -80,6 +97,16 @@
       x -= Math.sin(mid); z -= Math.cos(mid); th -= kint(b - 1, b);
       P[j] = { x, z, th, y: yAt(b - 1) };
     }
+    // 轉彎鏡頭：所有點繞著「鏡頭的位置」（車子後方 camD）旋轉 yaw，整體是剛體旋轉，
+    // 車子和路面之間的實際距離不變；車子會在畫面上稍微滑向一側
+    if (yaw) {
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      for (const q of P) {
+        const zc = q.z + cfg.camD;
+        const nx = q.x * cy - zc * sy, nz = q.x * sy + zc * cy;
+        q.x = nx; q.z = nz - cfg.camD; q.th -= yaw;
+      }
+    }
     return { P, base, n };
   }
 
@@ -95,5 +122,5 @@
     return { x: view.W / 2 + (x + d * Math.cos(th)) * sc, y: view.hor + ((view.camH ?? cfg.camH) - y - h) * sc, sc, zc };
   }
 
-  return { DEF, create, follow, riseTarget, rise, height, points, project };
+  return { DEF, create, follow, riseTarget, rise, steerLook, height, points, project };
 });

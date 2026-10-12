@@ -19,7 +19,7 @@ function resetRun() {
     ped: { d: -5.5, v: 0, active: false, rung: false, gone: false, judged: false }, doorOpen: false
   });
   if (c.startV) S.lastPedalT = 0;
-  cam.x = S.d; cam.rise = BikeCamera.riseTarget(ROADS[S.ch], S.x, CAM);
+  cam.x = S.d; cam.rise = BikeCamera.riseTarget(ROADS[S.ch], S.x, CAM); cam.yaw = 0; cam.shift = 0;
   S.crankVis = S.crank;
 }
 
@@ -167,7 +167,7 @@ function record(force) {
   S.lastRec = S.t;
   S.frames.push({ x: S.x, d: S.d, psi: S.psi, v: S.v, lean: S.lean, steer: S.steer, want: S.want, crankVis: S.crankVis, pitch: S.pitch,
     footDown: S.footDown, dadX: S.dadX, dadPhase: S.dadPhase, assist: S.assist, t: S.t, sig: S.sig, sigT: S.sigT,
-    pedD: S.ped.d, doorOpen: S.doorOpen, camX: cam.x, camH: BikeCamera.height(cam, CAM) });
+    pedD: S.ped.d, doorOpen: S.doorOpen, camX: cam.x + cam.shift, camYaw: cam.yaw, camH: BikeCamera.height(cam, CAM) });
   if (S.frames.length > 210) S.frames.shift();
 }
 
@@ -175,6 +175,7 @@ function move(dt) {
   E.stepMove(S, CH[S.ch], ROADS[S.ch], dt);
   BikeCamera.follow(cam, S.d, dt, CAM);
   BikeCamera.rise(cam, ROADS[S.ch], S.x, dt, CAM);
+  BikeCamera.steerLook(cam, E.turnRate(S, CH[S.ch]), dt, CAM);   // 摔車時不更新，鏡頭停住
   S.crankVis += (S.crank - S.crankVis) * Math.min(1, dt * 12);
   if (S.assist > 0.05) { S.dadX = S.x - 0.3; S.dadV = S.v; }
   else { S.dadV = Math.max(0, S.dadV - 2.5 * dt); S.dadX += S.dadV * dt; }
@@ -286,10 +287,10 @@ function rulesHills(c, road) {
   if (pedaling && S.grade <= 0 && S.gear <= 1 && S.v > S.target + 0.5) toastOnce('spin', '檔位太輕，腳在空轉。按 X 換重檔', 6);
   let inZone = null;
   for (const z of road.zones) if (S.x > z.s0 && S.x < z.s1) inZone = z;
-  // 限速是建議：太快的話要傾很多才轉得過去，輪胎抓地力不夠就會開始晃、打滑（engine.js 的抓地力模型）
+  // 建議速度：太快的話要傾很多才轉得過去，輪胎抓地力不夠就會開始晃、打滑（engine.js 的抓地力模型）
   if (inZone && S.v * 3.6 > inZone.lim + 2) toastOnce('over', `超過彎道建議速度 ${inZone.lim} km/h，點放 S 煞車`, 4, 1800);
   for (const z of road.zones) {
-    if (!S.flags['lim' + z.s0] && S.x > z.s0 - 25 && S.x < z.s0) { S.flags['lim' + z.s0] = 1; toast(`前方下坡彎道限速 ${z.lim} km/h，現在開始點放煞車`, 3000); }
+    if (!S.flags['lim' + z.s0] && S.x > z.s0 - 25 && S.x < z.s0) { S.flags['lim' + z.s0] = 1; toast(`前方下坡彎道，建議速度 ${z.lim} km/h，現在開始點放煞車`, 3000); }
   }
   return false;
 }

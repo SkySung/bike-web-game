@@ -2,6 +2,9 @@
 
 // ─────────────────────────── 道路與場景物件 ───────────────────────────
 // 道路以每 1 公尺一格的曲率/坡度表示（engine.js），物件用 (s 沿路距離, d 橫向偏移) 擺放
+// 彎道建議速度：用約 17° 的舒服傾角過這個彎的速度，取到 5 的倍數（km/h）
+const recommendedSpeed = R => Math.floor(Math.sqrt(9.8 * R * Math.tan(0.3)) * 3.6 / 5) * 5;
+
 function buildRoad(c) {
   const sc = SCENES[c.scene];
   const tr = E.buildTrack(E.TRACKS[c.track], DRAW + 40);
@@ -58,10 +61,9 @@ function buildRoad(c) {
       if (Math.abs(g - prev) > 0.03 && Math.abs(g) >= 0.05) sp.push({ t: 'grade', s: Math.max(2, i - 8), d: h + 0.9, g, L: 2 });
       prev = g;
     }
-    // 下坡彎道限速
+    // 下坡彎道的建議速度區（提醒用，數字和轉彎預告牌上的一致；牌子由下面統一放）
     for (const cv of tr.curves) if (cv.g < 0 || tr.gr[cv.s - 5] < 0) {
-      zones.push({ s0: cv.s - 10, s1: cv.s + cv.n, lim: 15 });
-      sp.push({ t: 'limit', s: cv.s - 16, d: h + 0.9, lim: 15, L: 2 });
+      zones.push({ s0: cv.s - 10, s1: cv.s + cv.n, lim: recommendedSpeed(cv.R) });
     }
   } else if (c.scene === 'night') {
     for (let s = 8; s < end; s += 22) sp.push({ t: 'lamp', s, d: h + 1.2, L: 2 });
@@ -75,8 +77,7 @@ function buildRoad(c) {
   // 彎道提示：彎道前一塊預告牌（箭頭 + 建議速度），彎道外側每 3 公尺一塊黃黑轉彎箭頭牌
   if (['park', 'hills', 'night'].includes(c.scene)) {
     for (const cv of tr.curves) {
-      // 建議速度：用約 17° 的舒服傾角過這個彎的速度，取到 5 的倍數
-      const vRec = Math.floor(Math.sqrt(9.8 * cv.R * Math.tan(0.3)) * 3.6 / 5) * 5;
+      const vRec = recommendedSpeed(cv.R);
       sp.push({ t: 'curve', s: Math.max(2, cv.s - 16), d: h + 0.9, dir: cv.dir, vRec, L: 2 });
       for (let q = 2; q < cv.n - 1; q += 3) sp.push({ t: 'chevron', s: cv.s + q, d: -cv.dir * (h + 0.7), dir: cv.dir, L: 2 });
     }

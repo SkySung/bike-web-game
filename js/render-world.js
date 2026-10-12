@@ -36,11 +36,12 @@ function layout(camH = CAM_H) {
 function buildView(st) {
   const camH = st.camH ?? BikeCamera.height(cam, CAM);
   const L = layout(camH);
-  const camX = st.camX ?? cam.x;
-  const { P, base, n } = BikeCamera.points(ROADS[S.ch], st.x, camX, CAM);
-  V = { ...L, W, P, base, n, st, clip: new Array(n + 1).fill(H), glows: [] };
+  const camX = st.camX ?? (cam.x + cam.shift);
+  const camYaw = st.camYaw ?? cam.yaw;
+  const { P, base, n } = BikeCamera.points(ROADS[S.ch], st.x, camX, CAM, camYaw);
+  V = { ...L, W, P, base, n, st, camYaw, clip: new Array(n + 1).fill(H), glows: [] };
   const b = projAt(st.x, st.d, 0);
-  V.bike = b ? { x: b.x, y: b.y, sc: b.sc } : { x: W / 2, y: L.baseY, sc: L.F / CAM_D };
+  V.bike = b ? { x: b.x, y: b.y, sc: b.sc, zc: b.zc } : { x: W / 2, y: L.baseY, sc: L.F / CAM_D, zc: CAM_D };
 }
 const projAt = (s, d, h = 0) => BikeCamera.project(V, s, d, h, CAM);
 const clipFor = s => V.clip[Math.floor(s - V.base) + 1] ?? H;
@@ -51,8 +52,8 @@ function drawSky(st, sc) {
   const g = ctx.createLinearGradient(0, 0, 0, hor);
   g.addColorStop(0, sc.sky[0]); g.addColorStop(1, sc.sky[1]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, hor + 1);
-  // 遠方的山和天空看的是「車頭朝哪」：路面不動，但車頭一轉，背景就跟著轉，轉彎感最直接
-  const bg = (E.lerpAt(road.hd, st.x) + (st.psi || 0)) * W * 0.55;
+  // 遠方的山和天空跟著鏡頭實際看的方向轉（道路方向 + 轉彎鏡頭的偏轉），和路面一致
+  const bg = (E.lerpAt(road.hd, st.x) + (V.camYaw || 0)) * W * 0.55;
   const sx = ((W * 0.78 - bg * 0.2) % (W * 1.6) + W * 1.6) % (W * 1.6) - W * 0.2;
   ctx.fillStyle = sc.sun; ctx.beginPath(); ctx.arc(sx, hor * 0.42, sc.dark ? 22 : 30, 0, TAU); ctx.fill();
   if (sc.dark) { ctx.fillStyle = sc.sky[0]; ctx.beginPath(); ctx.arc(sx + 9, hor * 0.42 - 5, 20, 0, TAU); ctx.fill(); }
@@ -163,25 +164,31 @@ function drawFence(o) {
     ctx.beginPath(); ctx.moveTo(p.x - w / 2, p.y); ctx.lineTo(p.x - w / 2, p.y - h); ctx.lineTo(p.x, p.y - h - w * 0.6); ctx.lineTo(p.x + w / 2, p.y - h); ctx.lineTo(p.x + w / 2, p.y); ctx.closePath(); ctx.fill(); ctx.stroke();
   });
 }
-function drawWall(o) {
-  const camS = V.st.x - CAM_D + 0.5;
-  const s0 = Math.max(o.s, camS), s1 = o.s + o.len; if (s0 >= s1) return;
-  const A = projAt(s0, o.d, 0), B = projAt(s1, o.d, 0), At = projAt(s0, o.d, o.h), Bt = projAt(s1, o.d, o.h);
+// 建築牆切成每公尺一片，每片各自依距離排序（長長的牆從近處延伸到遠處，不能只用一個距離代表）
+function drawWallSlice(o, a, b) {
+  const A = projAt(a, o.d, 0), B = projAt(b, o.d, 0), At = projAt(a, o.d, o.h), Bt = projAt(b, o.d, o.h);
   if (!A || !B || !At || !Bt) return;
-  if (o.s >= camS) {
-    const C = projAt(o.s, o.d + o.dir * 5, 0), Ct = projAt(o.s, o.d + o.dir * 5, o.h);
-    if (C && Ct) { poly([A, C, Ct, At], o.c); poly([A, C, Ct, At], 'rgba(30,43,51,.18)'); }
-  }
-  poly([A, B, Bt, At], o.c);
-  const r1 = projAt(s0, o.d, o.h - 0.45), r2 = projAt(s1, o.d, o.h - 0.45);
-  if (r1 && r2) poly([r1, r2, Bt, At], INK);
+  ctx.lineWidth = 1; ctx.lineJoin = 'round';
+  poly([A, B, Bt, At], o.c); ctx.strokeStyle = o.c; ctx.stroke();   // 同色描邊封住片與片之間的接縫
+  const r1 = projAt(a, o.d, o.h - 0.45), r2 = projAt(b, o.d, o.h - 0.45);
+  if (r1 && r2) { poly([r1, r2, Bt, At], INK); ctx.strokeStyle = INK; ctx.stroke(); }
+  // 窗戶：只畫落在這一片裡的部分
+  const k0 = Math.max(0, Math.ceil((a - o.s - 2.1) / 2.4)), k1 = Math.floor((b - o.s - 1) / 2.4);
   for (let y = 1.3; y + 1.3 < o.h - 0.6; y += 2.6) {
-    for (let sw = o.s + 1; sw + 1.1 < s1 - 0.6; sw += 2.4) {
-      if (sw < s0) continue;
-      const a = projAt(sw, o.d, y), b = projAt(sw + 1.1, o.d, y), bt = projAt(sw + 1.1, o.d, y + 1.3), at = projAt(sw, o.d, y + 1.3);
-      if (a && b && bt && at) poly([a, b, bt, at], 'rgba(30,43,51,.72)');
+    for (let k = k0; k <= k1; k++) {
+      const sw = o.s + 1 + k * 2.4;
+      if (sw + 1.1 >= o.s + o.len - 0.6) break;
+      const w0 = Math.max(sw, a), w1 = Math.min(sw + 1.1, b);
+      if (w1 <= w0) continue;
+      const p1 = projAt(w0, o.d, y), p2 = projAt(w1, o.d, y), p3 = projAt(w1, o.d, y + 1.3), p4 = projAt(w0, o.d, y + 1.3);
+      if (p1 && p2 && p3 && p4) poly([p1, p2, p3, p4], 'rgba(30,43,51,.72)');
     }
   }
+}
+// 靠近鏡頭那一端的建築正面
+function drawWallCap(o) {
+  const A = projAt(o.s, o.d, 0), At = projAt(o.s, o.d, o.h), C = projAt(o.s, o.d + o.dir * 5, 0), Ct = projAt(o.s, o.d + o.dir * 5, o.h);
+  if (A && At && C && Ct) { poly([A, C, Ct, At], o.c); poly([A, C, Ct, At], 'rgba(30,43,51,.18)'); }
 }
 function drawGroundOval(p, rx, col, ring) {
   const ry = rx * V.camH / p.zc;
@@ -228,7 +235,7 @@ function drawSprite(o, p, st) {
       if (sc.dark) V.glows.push({ x: p.x - 0.95 * s, y: p.y - 4.3 * s, r: 3.2 * s, gy: p.y, gr: 2.2 * s });
       break;
     }
-    case 'sign': case 'limit': case 'grade': {
+    case 'sign': case 'grade': {
       ctx.fillStyle = '#8A96A0'; ctx.fillRect(p.x - 0.04 * s, p.y - 2.2 * s, 0.08 * s, 2.2 * s);
       const cy = p.y - 2.45 * s;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -238,10 +245,6 @@ function drawSprite(o, p, st) {
         for (let j = 0; j < 8; j++) { const a = Math.PI / 8 + j * Math.PI / 4; ctx.lineTo(p.x + 0.38 * s * Math.cos(a), cy + 0.38 * s * Math.sin(a)); }
         ctx.closePath(); ctx.fill();
         if (s > 8) { ctx.fillStyle = '#fff'; ctx.font = `900 ${0.34 * s}px ${FONT}`; ctx.fillText(done ? '✓' : '停', p.x, cy + 0.02 * s); }
-      } else if (o.t === 'limit') {
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, cy, 0.4 * s, 0, TAU); ctx.fill();
-        ctx.strokeStyle = RED; ctx.lineWidth = 0.08 * s; ctx.stroke();
-        if (s > 8) { ctx.fillStyle = INK; ctx.font = `800 ${0.34 * s}px ${NUMF}`; ctx.fillText(String(o.lim), p.x, cy + 0.03 * s); }
       } else {
         ctx.fillStyle = YEL; ctx.beginPath(); ctx.moveTo(p.x, cy - 0.45 * s); ctx.lineTo(p.x + 0.45 * s, cy); ctx.lineTo(p.x, cy + 0.45 * s); ctx.lineTo(p.x - 0.45 * s, cy); ctx.closePath(); ctx.fill();
         ctx.strokeStyle = INK; ctx.lineWidth = 0.05 * s; ctx.stroke();
@@ -338,69 +341,27 @@ function drawPed(st, p) {
   ctx.restore();
 }
 
-// ── 腳踏車（從後方看）──
+// ── 腳踏車與騎士（從後方看）──
+// 畫法在 js/rider.js（小骨架 + 膠囊 + 深度排序）；這裡只負責把遊戲狀態換成姿勢，並處理影子、翻車、傾斜
 function drawBikeBack(st, cx, cy, s) {
+  const c = CH[S.ch];
   ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s);
   const sl = Math.sin(st.lean);
   ctx.fillStyle = 'rgba(30,43,51,.22)'; ctx.beginPath(); ctx.ellipse(sl * 0.55, 0.02, 0.3 + Math.abs(sl) * 0.6, 0.07, 0, 0, TAU); ctx.fill();
   if (st.pitch > 0) { ctx.translate(0, -Math.min(0.9, st.pitch * 0.45)); ctx.scale(1, 1 - Math.min(0.45, st.pitch * 0.22)); }
   ctx.rotate(st.lean);
-  // 前輪角度 = 騎士的操作 + 轉彎需要的角度：按 → 時先往左反打一下，車身倒下後轉向右邊撐住
-  const sa = E.frontWheelAngle(st, CH[S.ch]);
-  // 鏡頭不跟車頭轉，所以車頭方向畫在車上；加上「接下來 0.3 秒會轉多少」，傾斜時車頭就先偏過去
-  const turning = Math.abs(st.lean) < LEAN_MAX ? E.turnRate(st, CH[S.ch]) : 0;   // 倒下的車不預判轉向
-  const head = clamp((st.psi || 0) + turning * 0.3, -1.2, 1.2);
-  const yaw = Math.sin(head);
-  const hx = yaw * 0.7;
-  const gx = 0.3 * Math.cos(sa);
-  const gL = [-gx + hx, -1.02 - Math.sin(sa) * 0.06], gR = [gx + hx, -1.02 + Math.sin(sa) * 0.06];
-  const signing = st.sig && (st.t - st.sigT) < 1.6 ? st.sig : 0;
-
-  // 車子偏轉時從後面看得到輪子的側面：輪子畫成橢圓，越偏越圓；前輪在前方約 0.95 公尺，往車頭方向露出來
-  const wheel = (x, y, r, ang, col, w) => {
-    ctx.beginPath(); ctx.ellipse(x, y, r * Math.abs(Math.sin(ang)) + w / 2, r, 0, 0, TAU);
-    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke();
-  };
-  wheel(yaw * 0.95 + Math.sin(sa) * 0.08, -0.37, 0.32, head + sa, '#56636C', 0.06);
-  line([[0, -0.88], [hx * 1.15, -0.98]], 0.05, RED);
-  line([gL, gR], 0.035, INK);
-  ctx.fillStyle = INK; rr(gL[0] - 0.05, gL[1] - 0.025, 0.1, 0.05, 0.02); ctx.fill(); rr(gR[0] - 0.05, gR[1] - 0.025, 0.1, 0.05, 0.02); ctx.fill();
-
-  const ca = st.crankVis;
-  const leg = (side, a) => {
-    const hip = [side * 0.1, -0.92];
-    let foot, knee;
-    if (side > 0 && st.footDown) { foot = [0.48, 0.0]; knee = [0.3, -0.46]; }
-    else {
-      foot = [side * 0.17, -0.3 - 0.17 * Math.cos(a)];
-      knee = [side * 0.17, Math.min(hip[1] + 0.14, foot[1] - 0.34)];
-      line([[0, -0.3], foot], 0.025, '#8A96A0');
-    }
-    line([hip, knee], 0.12, PANTS); line([knee, foot], 0.1, PANTS);
-    ctx.fillStyle = INK; rr(foot[0] - 0.055, foot[1] - 0.03, 0.11, 0.07, 0.03); ctx.fill();
-  };
-  leg(-1, ca + Math.PI); leg(1, ca);
-
-  wheel(0, -0.35, 0.34, head, INK, 0.08);
-  ctx.fillStyle = RED; rr(-0.055, -0.76, 0.11, 0.24, 0.05); ctx.fill();
-  ctx.fillStyle = S.light && CH[S.ch].wet ? '#FF3B2F' : '#FF8A7A'; rr(-0.035, -0.6, 0.07, 0.05, 0.015); ctx.fill();
-  ctx.fillStyle = RED; ctx.fillRect(-0.025, -0.9, 0.05, 0.2);
-  ctx.fillStyle = INK; rr(-0.09, -0.97, 0.18, 0.07, 0.03); ctx.fill();
-
-  ctx.fillStyle = YEL; rr(-0.2, -1.44, 0.4, 0.56, 0.12); ctx.fill();
-  ctx.fillStyle = 'rgba(30,43,51,.1)'; rr(-0.2, -1.0, 0.4, 0.12, [0, 0, 0.12, 0.12]); ctx.fill();
-  if (CH[S.ch].id === 1) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -1.2, 0.09, 0, TAU); ctx.fill(); ctx.fillStyle = RED; ctx.font = `800 0.14px ${NUMF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('5', 0, -1.19); }
-  if (CH[S.ch].id >= 5) { ctx.fillStyle = '#3D6FB0'; rr(-0.16, -1.4, 0.32, 0.4, 0.08); ctx.fill(); ctx.fillStyle = '#F4F1E8'; ctx.fillRect(-0.12, -1.18, 0.24, 0.04); }
-  const shL = [-0.17, -1.36], shR = [0.17, -1.36];
-  // 打手勢時那隻手水平伸出去
-  const handL = signing === -1 ? [-0.78, -1.36] : gL, handR = signing === 1 ? [0.78, -1.36] : gR;
-  line([shL, signing === -1 ? [-0.48, -1.37] : [(shL[0] + gL[0]) / 2 - 0.04, (shL[1] + gL[1]) / 2], handL], 0.085, YEL);
-  line([shR, signing === 1 ? [0.48, -1.37] : [(shR[0] + gR[0]) / 2 + 0.04, (shR[1] + gR[1]) / 2], handR], 0.085, YEL);
-  ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(handL[0], handL[1], 0.045, 0, TAU); ctx.arc(handR[0], handR[1], 0.045, 0, TAU); ctx.fill();
-  ctx.fillStyle = SKIN; ctx.fillRect(-0.05, -1.5, 0.1, 0.08);
-  ctx.fillStyle = TEAL; ctx.beginPath(); ctx.arc(0, -1.6, 0.145, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.fillRect(-0.025, -1.745, 0.05, 0.25);
-  ctx.fillStyle = '#23867B'; ctx.fillRect(-0.15, -1.56, 0.3, 0.04);
+  // 車頭朝向：鏡頭不跟車頭轉，所以畫在車上；加上「接下來 0.3 秒會轉多少」，傾斜時車頭就先偏過去
+  const turning = Math.abs(st.lean) < LEAN_MAX ? E.turnRate(st, c) : 0;   // 倒下的車不預判轉向
+  BikeSprite.draw(ctx, {
+    yaw: clamp((st.psi || 0) + turning * 0.3, -1.2, 1.2),
+    steer: E.frontWheelAngle(st, c),     // 騎士的操作 + 轉彎需要的角度：按 → 時先往左反打一下，再轉向右邊
+    crank: st.crankVis,
+    footDown: st.footDown,
+    signing: st.sig && (st.t - st.sigT) < 1.6 ? st.sig : 0,
+    number: c.id === 1 ? 5 : null,
+    backpack: c.id >= 5,
+    tailLight: !!(S.light && c.wet)
+  });
   ctx.restore();
 }
 
@@ -462,42 +423,64 @@ function drawNight(st) {
   ctx.stroke();
 }
 
+// 所有物件用同一套順序畫：地上的東西（水坑、人孔蓋、地面文字）先畫；
+// 其餘站著的東西（建築、柵欄、樹、車、人、主角）一律依距離由遠到近畫，近的蓋住遠的。
+// 被坡頂擋住的部分用 V.clip 裁掉。
+const GROUND = new Set(['puddle', 'manhole', 'paint']);
 function drawWorld(st) {
   const c = CH[S.ch], sc = SCENES[c.scene], road = ROADS[S.ch];
   buildView(st);
   drawSky(st, sc);
   drawRoad(st, sc);
 
-  const lo = st.x - CAM_D - 1, hi = st.x + DRAW - 2;
+  const camS = st.x - CAM_D + 0.5, lo = st.x - CAM_D - 1, hi = st.x + DRAW - 2;
   const items = [];
+  const zAt = (s, d) => { const p = projAt(s, d, 0); return p ? p.zc : null; };
   for (const o of road.sp) {
-    const long = o.t === 'wall' || o.t === 'fence';
-    if (long) { if (o.s + o.len < lo || o.s > hi) continue; }
-    else if (o.s < lo || o.s > hi) continue;
-    const p = projAt(long ? Math.max(o.s, st.x - CAM_D + 0.5) : o.s, o.d, 0);
-    if (!p && !long) continue;
-    items.push({ o, p, z: p ? p.zc : 0, L: o.L });
+    if (o.t === 'wall') {
+      if (o.s + o.len < lo || o.s > hi) continue;
+      // 近處切細（轉角遮擋最需要），遠處切粗（省效能）
+      const end = Math.min(o.s + o.len, hi);
+      for (let a = Math.max(o.s, camS); a < end;) {
+        const dist = a - st.x, step = dist < 25 ? 1 : dist < 60 ? 3 : 8;
+        const b = Math.min(Math.floor(a / step) * step + step, o.s + o.len), z = zAt((a + b) / 2, o.d);
+        if (z != null) items.push({ kind: 'wallSlice', o, a, b, z });
+        a = b;
+      }
+      if (o.s >= camS) { const z = zAt(o.s, o.d + o.dir * 2.5); if (z != null) items.push({ kind: 'wallCap', o, z }); }
+      continue;
+    }
+    if (o.t === 'fence') {
+      if (o.s + o.len < lo || o.s > hi) continue;
+      const z = zAt(Math.max(o.s, camS) + o.len / 2, o.d);
+      if (z != null) items.push({ kind: 'fence', o, z });
+      continue;
+    }
+    if (o.s < lo || o.s > hi) continue;
+    const p = projAt(o.s, o.d, 0);
+    if (p) items.push({ kind: 'sprite', o, p, z: p.zc, ground: GROUND.has(o.t) });
   }
   if (c.id === 1) {
     const p = projAt(st.dadX, -0.8, 0);
-    if (p && p.zc > 0.9) items.push({ o: { t: 'dad', s: st.dadX }, p, z: p.zc, L: 2 });
+    if (p && p.zc > 0.9) items.push({ kind: 'dad', o: { s: st.dadX }, p, z: p.zc });
   }
   if (c.zebra != null && S.ped.active && !S.ped.gone) {
     const pd = st.pedD ?? S.ped.d, p = projAt(c.zebra + 2, pd, 0);
-    if (p) items.push({ o: { t: 'ped', s: c.zebra + 2 }, p, z: p.zc, L: 2 });
+    if (p) items.push({ kind: 'ped', o: { s: c.zebra + 2 }, p, z: p.zc });
   }
-  items.push({ o: { t: 'bike' }, z: CAM_D, L: 2 });
-  items.sort((a, b) => (a.L !== b.L && (a.L < 2 || b.L < 2)) ? a.L - b.L : b.z - a.z);
+  items.push({ kind: 'bike', z: V.bike.zc ?? CAM_D });
+  items.sort((a, b) => (!!b.ground - !!a.ground) || (b.z - a.z));
   for (const it of items) {
-    const t = it.o.t;
-    if (t === 'bike') { drawBikeBack(st, V.bike.x, V.bike.y, V.bike.sc); continue; }
-    if (t === 'wall') { clipAbove(clipFor(Math.max(it.o.s, st.x - CAM_D + 0.5)), () => drawWall(it.o)); continue; }
-    if (t === 'fence') { drawFence(it.o); continue; }
-    const cy = clipFor(it.o.s), hidden = it.p && it.p.y > cy + 0.5;
+    const { kind, o } = it;
+    if (kind === 'bike') { drawBikeBack(st, V.bike.x, V.bike.y, V.bike.sc); continue; }
+    if (kind === 'wallSlice') { clipAbove(clipFor(it.a), () => drawWallSlice(o, it.a, it.b)); continue; }
+    if (kind === 'wallCap') { clipAbove(clipFor(o.s), () => drawWallCap(o)); continue; }
+    if (kind === 'fence') { drawFence(o); continue; }
+    const cy = clipFor(o.s), hidden = it.p.y > cy + 0.5;
     if (hidden) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, cy); ctx.clip(); }
-    if (t === 'dad') drawDad(st, it.p);
-    else if (t === 'ped') drawPed(st, it.p);
-    else drawSprite(it.o, it.p, st);
+    if (kind === 'dad') drawDad(st, it.p);
+    else if (kind === 'ped') drawPed(st, it.p);
+    else drawSprite(o, it.p, st);
     if (hidden) ctx.restore();
   }
   if (sc.dark) drawNight(st);

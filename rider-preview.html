@@ -1,0 +1,70 @@
+<meta charset="utf-8">
+<title>騎士造型預覽</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Noto+Sans+TC:wght@400;700;900&display=swap">
+<style>
+  :root { color-scheme: light; --ink: #1E2B33; --muted: #5B6B75; --bg: #EAF4F6; --card: #FFFFFF; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { margin: 0 0 6px; font-size: 26px; font-weight: 900; }
+  p { margin: 0 0 18px; color: var(--muted); line-height: 1.7; max-width: 70ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  figure { margin: 0; background: var(--card); border: 2px solid var(--ink); border-radius: 14px; overflow: hidden; }
+  canvas { display: block; width: 100%; aspect-ratio: 200 / 240; background: linear-gradient(#BFE3F0 0 38%, #6E767C 38% 100%); }
+  figcaption { padding: 8px 12px; font-size: 14px; font-weight: 700; border-top: 2px solid var(--ink); }
+  figcaption small { display: block; color: var(--muted); font-weight: 400; }
+</style>
+<main>
+  <h1>騎士造型預覽</h1>
+  <p>用小骨架 + 膠囊 + 深度排序畫的騎士。往右轉時看得到右手、右腳和身體右側，左手被背擋住只露出握把的手；臉頰從安全帽旁邊露出來。所有格子都在踩踏，最後一格會自動左右轉。</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script src="js/rider.js"></script>
+<script>
+  const deg = d => d * Math.PI / 180;
+  const cells = [
+    { t: '正後方', s: '車頭朝前', pose: { yaw: 0 } },
+    { t: '右轉 20°', s: '看得到右手、右側身體', pose: { yaw: deg(20), steer: deg(8) } },
+    { t: '右轉 40°', s: '左手被背擋住', pose: { yaw: deg(40), steer: deg(12) } },
+    { t: '左轉 20°', pose: { yaw: deg(-20), steer: deg(-8) } },
+    { t: '左轉 40°', pose: { yaw: deg(-40), steer: deg(-12) } },
+    { t: '右轉 30° + 右傾 20°', s: '過彎的樣子', pose: { yaw: deg(30), lean: deg(20), steer: deg(10) } },
+    { t: '左轉 30° + 左傾 20°', pose: { yaw: deg(-30), lean: deg(-20), steer: deg(-10) } },
+    { t: '停車放腳', s: '右腳踩地', pose: { yaw: 0, footDown: true, still: true } },
+    { t: '右轉手勢', s: '第 5 章，背書包', pose: { yaw: deg(10), signing: 1, backpack: true } },
+    { t: '左轉手勢', s: '第 5 章，背書包', pose: { yaw: deg(-10), signing: -1, backpack: true } },
+    { t: '背號 5、右轉 30°', s: '第 1 章', pose: { yaw: deg(30), number: 5 } },
+    { t: '自動左右轉', s: '±45°，含傾斜', pose: { auto: true, number: 5 } }
+  ];
+  const grid = document.getElementById('grid');
+  const items = cells.map(c => {
+    const fig = document.createElement('figure');
+    fig.innerHTML = `<canvas></canvas><figcaption>${c.t}${c.s ? `<small>${c.s}</small>` : ''}</figcaption>`;
+    grid.appendChild(fig);
+    return { ...c, cv: fig.querySelector('canvas') };
+  });
+  function frame(t) {
+    const sec = t / 1000;
+    for (const it of items) {
+      const cv = it.cv, dpr = Math.min(2, devicePixelRatio || 1);
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const pose = { ...it.pose };
+      if (!pose.still) pose.crank = sec * Math.PI * 2;           // 每秒踩一圈
+      if (pose.auto) {
+        const a = Math.sin(sec * 0.8);
+        pose.yaw = deg(45) * a; pose.lean = deg(18) * a; pose.steer = deg(12) * a;
+      }
+      const sc = h / 2.3;                                         // 每公尺幾像素
+      ctx.save(); ctx.translate(w / 2, h * 0.9); ctx.scale(sc, sc);
+      ctx.fillStyle = 'rgba(30,43,51,.25)'; ctx.beginPath(); ctx.ellipse(Math.sin(pose.lean || 0) * 0.5, 0.02, 0.35, 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.rotate(pose.lean || 0);
+      BikeSprite.draw(ctx, pose);
+      ctx.restore();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

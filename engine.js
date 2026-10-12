@@ -34,6 +34,8 @@
     SLIDE_PUSH: 4,     // 超過抓地極限時，輪胎往外滑、車身往內倒的力道
     SLIDE_CAP: 0.5,    // 往內倒的力道上限（超過極限的部分最多算到 0.5）：還救得回來，救太慢才會倒
     SLICK_MU: 0.35,    // 踩在水坑、人孔蓋上時抓地力剩下的比例（離開就恢復）
+    SLICK_KICK: 0.5,   // 踩上去那一下，傾角再加大「目前傾角 × 這個比例」
+    SLICK_LEAN_CAP: 0.75, // 那一下最多只把傾角推到摔車角度的 75%，不會直接倒
     DRAG0: 0.15,       // 滾動阻力
     DRAG2: 0.005,      // 空氣阻力（× 速度²）：下坡不煞車會越衝越快
     REAR: 2.6, FRONT: 5.5,
@@ -118,10 +120,15 @@
     return lateral / surfaceMu(st, c);
   }
   // 剛踩上水坑或人孔蓋的那一下：車身突然晃一下。傾得越多、還在煞車，晃得越兇
+  // 傾斜時踩到：車身往原本傾斜的方向再推一點，傾得越多推得越多（更接近摔倒），
+  // 但這一下最多只推到 SLICK_LEAN_CAP × 摔車角度，單靠它不會直接倒；直立踩到只會小晃一下
   function hitSlick(st, rnd = Math.random, braking = false) {
-    const side = rnd() < 0.5 ? -1 : 1;
-    st.leanV += side * (0.25 + 2 * Math.abs(st.lean)) * (0.5 + rnd()) + Math.sign(st.lean) * Math.abs(st.lean) * 1.5;
-    if (braking) st.leanV += (rnd() < 0.5 ? -1 : 1) * 1.2;
+    const a = Math.abs(st.lean);
+    const dir = a > 0.03 ? Math.sign(st.lean) : (rnd() < 0.5 ? -1 : 1);
+    const extra = Math.max(0, Math.min(P.SLICK_KICK * a + 0.05, P.SLICK_LEAN_CAP * P.LEAN_MAX - a));
+    st.lean += dir * extra * 0.5;          // 一半立刻反映
+    st.leanV += dir * extra * 2;           // 另一半變成往那邊倒的速度
+    if (braking) st.leanV += dir * 0.4;    // 還在煞車：更不穩
   }
 
   // 高速時輪子的陀螺效應讓車身比較不受路面顛簸、風吹影響

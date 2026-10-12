@@ -362,3 +362,44 @@ test('下坡前攝影機會升高，坡頂後面的下坡路面因此露出來�
   const low = visible(C.DEF.camH), high = visible(C.DEF.camH + rise);
   assert.ok(high > low, `升高後露出 ${high.toFixed(1)} px，沒升高 ${low.toFixed(1)} px`);
 });
+
+// ─────────────── 轉彎鏡頭 ───────────────
+test('轉彎鏡頭：往右轉時往右看、往外側（左）平移，有上限；回正後會回來', () => {
+  const cam = C.create(0);
+  for (let t = 0; t < 3; t += DT) C.steerLook(cam, 1.2, DT);          // 全力右轉
+  assert.ok(cam.yaw > 0 && cam.yaw <= C.DEF.yawMax + 1e-9, `偏轉 ${(cam.yaw * 57.3).toFixed(1)}°`);
+  assert.ok(cam.shift < 0 && cam.shift >= -C.DEF.shiftMax - 1e-9, `平移 ${cam.shift.toFixed(2)} m`);
+  for (let t = 0; t < 4; t += DT) C.steerLook(cam, 0, DT);            // 回正
+  assert.ok(Math.abs(cam.yaw) < 0.01 && Math.abs(cam.shift) < 0.02, '回正後鏡頭應該回到原位');
+});
+
+test('轉彎鏡頭只是換個角度看：旋轉後車子與路面的實際距離不變', () => {
+  const track = E.buildTrack(E.TRACKS.park, 200);
+  const at = (P, base, s, d) => {                     // 道路座標 → 鏡頭座標（和 project 的換算一致）
+    const fi = s - base, i = Math.floor(fi), t = fi - i, a = P[i], b = P[i + 1];
+    const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t, th = a.th + (b.th - a.th) * t;
+    return [x + d * Math.cos(th), z - d * Math.sin(th)];
+  };
+  const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const measure = yaw => {
+    const { P, base } = C.points(track, 40.3, 0.5, C.DEF, yaw);
+    const bike = at(P, base, 40.3, 1.5);
+    return { toCenter: dist(bike, at(P, base, 40.3, 0)), toAhead: dist(bike, at(P, base, 52, -1)) };
+  };
+  const straight = measure(0);
+  for (const yaw of [0.15, -0.26]) {
+    const m = measure(yaw);
+    assert.ok(Math.abs(m.toCenter - 1.5) < 1e-6, `偏轉 ${yaw}：車子離路中心 ${m.toCenter.toFixed(4)} m`);
+    assert.ok(Math.abs(m.toAhead - straight.toAhead) < 1e-6, `偏轉 ${yaw}：和前方路面的距離變了`);
+  }
+});
+
+test('踩到水坑：傾角往原本傾斜的方向加大，傾越多加越多，但那一下不會直接超過摔車角度', () => {
+  const kick = lean => { const st = newRider({ v: 3.5, lean, leanV: 0 }); E.hitSlick(st, rng(1)); return st; };
+  const small = kick(0.15), big = kick(-0.4), upright = kick(0);
+  assert.ok(small.lean > 0.15 && small.leanV > 0, '右傾時應該往右加大');
+  assert.ok(big.lean < -0.4 && big.leanV < 0, '左傾時應該往左加大');
+  assert.ok(Math.abs(big.lean) - 0.4 > small.lean - 0.15, '傾得越多，加大得越多');
+  assert.ok(Math.abs(big.lean) < E.P.LEAN_MAX * E.P.SLICK_LEAN_CAP + 1e-9, '那一下不能直接推過上限');
+  assert.ok(Math.abs(upright.lean) < 0.05, '直立踩到只會小晃一下');
+});
