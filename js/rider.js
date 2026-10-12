@@ -95,9 +95,9 @@
     cap(seatTop, headTop, 0.045, COL.frame, { outline: false });
     cap(bb, headLow, 0.05, COL.frame, { outline: false });
     cap(headLow, frontHub, 0.04, COL.frameDark, { outline: false });
-    cap([0, 0.9, -0.02], [0, 0.92, 0.2], 0.07, COL.ink, { outline: false });            // 座墊
-    cap([0, 0.66, -0.14], [0, 0.7, 0.12], 0.1, COL.frame, { outline: false, bias: -0.2 }); // 後擋泥板
-    const refl = P([0, 0.58, -0.17]);
+    // 後擋泥板包住後輪的後半圈；尾燈在擋泥板末端，比後輪外緣再後面一點（轉彎時才會在正確的位置）
+    cap([0, 0.58, -0.3], [0, 0.71, 0.02], 0.1, COL.frame, { outline: false, bias: -0.2 });
+    const refl = P([0, 0.53, -0.37]);
     add(refl.z - 0.25, () => { ctx.fillStyle = tailLight ? '#FF3B2F' : '#FF8A7A'; ctx.fillRect(refl.x - 0.035, refl.y - 0.025, 0.07, 0.05); });
     // 龍頭：跟著前輪轉
     const stem = [0, 1.02, 0.78];
@@ -114,6 +114,10 @@
     // 軀幹的深度（腳的排序要參考它）
     const torsoPts = [hipL, [-0.17, 1.14, 0.14], shL, neck, shR, [0.17, 1.14, 0.14], hipR].map(P);
     const torsoZ = torsoPts.reduce((s, p) => s + p.z, 0) / torsoPts.length;
+
+    // 座墊：後半段看得到；前半段（坐墊鼻）在騎士身體和大腿底下，排在大腿後面被擋住
+    cap([0, 0.9, -0.04], [0, 0.91, 0.07], 0.075, COL.ink, { outline: false });
+    cap([0, 0.91, 0.07], [0, 0.92, 0.2], 0.06, COL.ink, { outline: false, depth: torsoZ + 0.05 });
 
     // 腳：踏板在車架兩側繞圈，膝蓋往前彎
     const pedal = (side, a) => [side * 0.15, bb[1] + 0.17 * Math.cos(a), bb[2] + 0.17 * Math.sin(a)];
