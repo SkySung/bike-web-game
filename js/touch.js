@@ -105,6 +105,8 @@ function syncTouchDOM(labelW) {
   for (const b of txEl.children) {
     const lit = b.dataset.k === 'foot' ? S.footDown : b.dataset.k === 'light' ? S.light : false;
     if (b.classList.contains('lit') !== lit) b.classList.toggle('lit', lit);
+    // 腳踩著地時，同一顆按鈕是「起步」（蹬地）
+    if (b.dataset.k === 'foot') { const tx = S.footDown && S.v < 0.3 ? '起步' : '放腳'; if (b.textContent !== tx) b.textContent = tx; }
   }
 }
 

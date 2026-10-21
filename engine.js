@@ -23,6 +23,7 @@
     ASSIST_V1: 2.0,    // 高於這個速度（約 7 km/h）輔助完整
     ASSIST_MIN: 0.25,  // 停著時還剩的輔助比例
     WHEELBASE: 1.0,    // 軸距（公尺），用來算轉彎時前輪轉多少
+    STEER_CUE: 0.12, // 畫面上前輪的反打提示最多幾弧度（約 7°）
     MAX_STEER: 0.7,    // 龍頭最多能轉的角度（約 40°）：低速時轉彎量受它限制，不會原地打橫
     G_SLOW: 5,         // 低速時額外的傾倒力：越慢越容易倒（只影響 V_SLOW 以下）
     BODY: 1.5,         // 按方向鍵時身體重心移動，直接把車身往那邊推的力道；高速時騎士會用龍頭抵消，低速抵消不了就會倒
@@ -100,10 +101,15 @@
     const effort = P.ASSIST + (1 - P.ASSIST) * Math.min(1, Math.abs(st.want || 0));
     return Math.max(-1, Math.min(1, need * effort * ramp));
   }
-  // 畫面上的前輪角度 = 騎士的操作 + 轉彎本身需要的角度（軸距 × 角速度 ÷ 速度，朝彎道內側）
+  // 畫面上的前輪角度 = 車子實際走的軌跡需要的角度 + 一點點反向轉向的提示。
+  // 軌跡角度用「車頭在世界裡實際轉多快」算（含前兩章的轉彎縮小與自動回正），所以前輪轉多少，畫面上就真的彎多少；
+  // 高速時同樣的傾角轉彎半徑大，前輪只轉幾度（跟真的腳踏車、經典機車遊戲一樣，傾斜才是主要的視覺）。
+  // 騎士的操作量 steer 是 -1..1 的出力，不是角度，只取一小部分當反打提示，最多約 7°
   function frontWheelAngle(st, c = {}) {
-    const geom = Math.atan(P.WHEELBASE * turnRate(st, c) / Math.max(st.v, 0.3));
-    return st.steer * 0.6 + Math.max(-P.MAX_STEER, Math.min(P.MAX_STEER, geom));
+    const world = turnRate(st, c) - ((c.turn ?? 1) < 1 ? 1.5 * (st.psi || 0) : 0);
+    const geom = Math.atan(P.WHEELBASE * world / Math.max(st.v, 0.5));
+    const cue = Math.max(-P.STEER_CUE, Math.min(P.STEER_CUE, st.steer * 0.6));
+    return cue + Math.max(-P.MAX_STEER, Math.min(P.MAX_STEER, geom));
   }
 
   // 傾倒的力道：越慢越容易倒（低於 V_SLOW 時額外加上 G_SLOW）

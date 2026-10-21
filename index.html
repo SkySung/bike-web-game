@@ -39,8 +39,9 @@
   }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   /* 觸控時兩側上方有儀表和按鈕：橫向把提示收窄放中間，直向移到按鈕下面 */
-  #app.touch #toast { max-width: max(300px, calc(100% - 440px)); }
-  @media (orientation: portrait) { #app.touch #toast { top: 270px; max-width: calc(100% - 32px); } }
+  #app.touch #toast { top: 64px; max-width: max(300px, calc(100% - 440px)); }
+  #app.touch #tx { top: 84px; }
+  @media (orientation: portrait) { #app.touch #toast { top: 270px; max-width: calc(100% - 32px); } #app.touch #tx { top: 112px; } }
 
   #ov {
     position: absolute; inset: 0; overflow: auto;
@@ -143,15 +144,15 @@
 </div>
 
 <!-- 每次更新把 ?v= 的數字加一，瀏覽器才不會用到舊檔案。載入順序：物理與鏡頭（純計算，可單獨測試）→ 共用 → 資料 → 道路 → 音效 → 遊戲邏輯 → 觸控 → 騎士 → 繪圖 → 儀表 → 流程 -->
-<script src="engine.js?v=26"></script>
-<script src="js/camera.js?v=26"></script>
-<script src="js/core.js?v=26"></script>
-<script src="js/data.js?v=26"></script>
-<script src="js/road.js?v=26"></script>
-<script src="js/audio.js?v=26"></script>
-<script src="js/game.js?v=26"></script>
-<script src="js/touch.js?v=26"></script>
-<script src="js/rider.js?v=26"></script>
-<script src="js/render-world.js?v=26"></script>
-<script src="js/hud.js?v=26"></script>
-<script src="js/main.js?v=26"></script>
+<script src="engine.js?v=27"></script>
+<script src="js/camera.js?v=27"></script>
+<script src="js/core.js?v=27"></script>
+<script src="js/data.js?v=27"></script>
+<script src="js/road.js?v=27"></script>
+<script src="js/audio.js?v=27"></script>
+<script src="js/game.js?v=27"></script>
+<script src="js/touch.js?v=27"></script>
+<script src="js/rider.js?v=27"></script>
+<script src="js/render-world.js?v=27"></script>
+<script src="js/hud.js?v=27"></script>
+<script src="js/main.js?v=27"></script>

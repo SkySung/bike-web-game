@@ -255,6 +255,17 @@ test('按 → 時前輪先往左反打一下，接著轉向右邊撐住傾斜', 
   assert.ok(late.every(w => w > 0.02), '傾斜穩定後前輪應該朝右（彎道內側）');
 });
 
+test('前輪角度跟畫面上實際的軌跡一致：前兩章轉彎縮小時，按住方向鍵前輪也只轉一點點', () => {
+  const c1 = { turn: 0.35, noise: 0, vmax: 5, dLim: [-4, 4] };
+  const { log } = holdKey(1, 3, 3, undefined, c1);
+  const maxWheel = Math.max(...log.map(l => Math.abs(l.wheel)));
+  assert.ok(maxWheel < 0.26, `第 1 章按住 → 前輪轉到 ${(maxWheel * 57.3).toFixed(0)}°，畫面上的軌跡卻幾乎沒彎`);
+  // 第 3 章（真實轉彎）：前輪角度大致等於軸距 / 轉彎半徑
+  const { st, log: l3 } = holdKey(1, 2);
+  const R = st.v / E.turnRate(st, { turn: 1 }), want = Math.atan(E.P.WHEELBASE / R);
+  assert.ok(Math.abs(l3[l3.length - 1].wheel - want) < 0.13, `前輪 ${(l3[l3.length - 1].wheel * 57.3).toFixed(0)}°，半徑 ${R.toFixed(1)} m 需要 ${(want * 57.3).toFixed(0)}°`);
+});
+
 test('放開方向鍵，車身會自己回正', () => {
   const { st } = holdKey(1, 1.5);
   const { log } = holdKey(0, 2.5, 3.9, st);

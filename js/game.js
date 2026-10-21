@@ -59,6 +59,12 @@ function pedal(f) {
 }
 function toggleFoot() {
   if (S.mode !== 'play' || S.crashT) return;
+  // 停著時再按一次是「起步」：踩地的腳往後一蹬，車子先有一點速度（仍低於 0.6，第一腳照樣看踏板位置）
+  if (S.footDown && S.v < 0.3) {
+    S.footDown = false; S.v = Math.max(S.v, 0.5); sfx.tick();
+    toastOnce('push', '腳往後一蹬，車子動了！趁還沒倒，馬上踩下第一腳', 8, 2400);
+    return;
+  }
   S.footDown = !S.footDown; sfx.tick();
 }
 function adjustCrank() {

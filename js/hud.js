@@ -33,24 +33,27 @@ function drawHUD(st) {
   if (c.wet) chip(W - 16, top + 42, S.light ? '車燈 開' : touchShown ? '車燈 關' : '車燈 關（L）', S.light ? YEL : RED, S.light ? INK : '#fff', 'right');
 
   // 水平儀
-  const vw = Math.min(320, W - 60), vx = (W - vw) / 2, vy = top + 70, vh = 22;
+  // 手機橫向畫面矮：縮小放到最上排（章節名稱和速度之間），不擋前面的路
+  const slim = touchShown && W > H;
+  const vw = slim ? clamp(W - 2 * (lw + 40), 140, 260) : Math.min(320, W - 60), vx = (W - vw) / 2;
+  const vy = slim ? top + 7 : top + 70, vh = slim ? 18 : 22, bw = slim ? 11 : 14;
   const grd = ctx.createLinearGradient(vx, 0, vx + vw, 0);
   grd.addColorStop(0, '#F4A08F'); grd.addColorStop(0.18, '#E8F6C9'); grd.addColorStop(0.82, '#E8F6C9'); grd.addColorStop(1, '#F4A08F');
-  ctx.fillStyle = grd; rr(vx, vy, vw, vh, 11); ctx.fill();
-  ctx.strokeStyle = INK; ctx.lineWidth = 2.5; rr(vx, vy, vw, vh, 11); ctx.stroke();
+  ctx.fillStyle = grd; rr(vx, vy, vw, vh, vh / 2); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.5; rr(vx, vy, vw, vh, vh / 2); ctx.stroke();
   ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(30,43,51,.5)';
-  for (const f of [-0.5, 0, 0.5]) { const x = W / 2 + f * (vw / 2 - 16); ctx.beginPath(); ctx.moveTo(x, vy + 4); ctx.lineTo(x, vy + vh - 4); ctx.stroke(); }
-  const bxp = W / 2 + clamp(st.lean / LEAN_MAX, -1, 1) * (vw / 2 - 16);
+  for (const f of [-0.5, 0, 0.5]) { const x = W / 2 + f * (vw / 2 - bw - 2); ctx.beginPath(); ctx.moveTo(x, vy + 4); ctx.lineTo(x, vy + vh - 4); ctx.stroke(); }
+  const bxp = W / 2 + clamp(st.lean / LEAN_MAX, -1, 1) * (vw / 2 - bw - 2);
   ctx.fillStyle = Math.abs(st.lean) > 0.55 ? '#FFD7CF' : '#FFFFFF';
-  ctx.beginPath(); ctx.ellipse(bxp, vy + vh / 2, 14, 7, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(bxp, vy + vh / 2, bw, bw / 2, 0, 0, TAU); ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.ellipse(bxp - 4, vy + vh / 2 - 2, 4, 2, 0, 0, TAU); ctx.fill();
   ctx.font = `900 16px ${FONT}`; ctx.textAlign = 'center';
   ctx.fillStyle = st.want < -0.15 ? RED : sc.dark ? 'rgba(238,243,248,.35)' : 'rgba(30,43,51,.3)'; ctx.fillText('◀', vx - 12, vy + vh / 2 + 1);
   ctx.fillStyle = st.want > 0.15 ? RED : sc.dark ? 'rgba(238,243,248,.35)' : 'rgba(30,43,51,.3)'; ctx.fillText('▶', vx + vw + 12, vy + vh / 2 + 1);
-  ctx.font = `700 11px ${FONT}`; ctx.fillStyle = ink; ctx.fillText('平衡', W / 2, vy + vh + 12);
+  ctx.font = `700 11px ${FONT}`; ctx.fillStyle = ink; if (!slim) ctx.fillText('平衡', W / 2, vy + vh + 12);
 
-  if (touchShown) { drawTouchColumn(st, c, ink, top + 112); ctx.textBaseline = 'alphabetic'; return; }
+  if (touchShown) { drawTouchColumn(st, c, ink, top + (slim ? 64 : 112)); ctx.textBaseline = 'alphabetic'; return; }
 
   // 左下：踏板鐘 + 節奏
   const base = H - 16;
