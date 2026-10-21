@@ -108,7 +108,7 @@ function press(a) {
   else if (a === 'light') toggleLight();
 }
 function release(a) { K[a] = false; }
-function clearKeys() { for (const k in K) K[k] = false; document.querySelectorAll('.tb.on').forEach(b => b.classList.remove('on')); }
+function clearKeys() { for (const k in K) K[k] = false; document.querySelectorAll('.tb.on').forEach(b => b.classList.remove('on')); touchReset(); }
 
 window.addEventListener('keydown', e => {
   if (S.mode === 'replay' && ['Enter', 'Space', 'Escape'].includes(e.code)) { e.preventDefault(); skipReplay(); return; }
@@ -125,27 +125,6 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { const a = KEYMAP[e.code]; if (a) release(a); });
 window.addEventListener('blur', () => { clearKeys(); if (S.mode === 'play') togglePause(); });
 
-let touchShown = false;
-function showTouch() { if (touchShown) return; touchShown = true; touchEl.hidden = false; }
-if (window.matchMedia && matchMedia('(pointer: coarse)').matches) showTouch();
-window.addEventListener('touchstart', showTouch, { passive: true });
-function bindTouch(b) {
-  const k = b.dataset.k;
-  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.classList.add('on'); sfx.init(); if (S.mode === 'play') press(k); });
-  const up = () => { b.classList.remove('on'); release(k); };
-  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
-  b.addEventListener('contextmenu', e => e.preventDefault());
-}
-touchEl.querySelectorAll('[data-k]').forEach(bindTouch);
-function setupTouchExtras() {
-  const c = CH[S.ch], btns = [];
-  if (c.gears) btns.push(['gearDown', 'Z 輕檔'], ['gearUp', 'X 重檔']);
-  if (c.safety) btns.push(['sigL', 'Q 左手勢'], ['sigR', 'E 右手勢'], ['bell', '鈴 🔔']);
-  if (c.wet) btns.push(['light', 'L 車燈']);
-  txEl.innerHTML = btns.map(([k, t]) => `<button class="tb" data-k="${k}">${t}</button>`).join('');
-  txEl.querySelectorAll('[data-k]').forEach(bindTouch);
-  txEl.hidden = !(touchShown && btns.length);
-}
 skipBtn.addEventListener('click', () => skipReplay());
 
 // ─────────────────────────── 物理與規則 ───────────────────────────
@@ -203,7 +182,8 @@ function step(dt) {
   }
 
   // 方向鍵代表「想往哪邊傾」（+ = 往右）；龍頭怎麼打交給引擎裡的騎士反射（engine.js riderSteer）
-  E.smoothInput(S, (K.right ? 1 : 0) - (K.left ? 1 : 0), dt);
+  // 觸控時左手拖曳的距離是類比量（touch.js），可以只傾一點點
+  E.smoothInput(S, (K.right ? 1 : 0) - (K.left ? 1 : 0) || touchLean(), dt);
 
   // 煞車：濕地效果變差；一直捏著後煞會過熱
   const wet = c.wet ? 0.6 : 1;

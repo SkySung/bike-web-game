@@ -14,7 +14,7 @@ const SUBSTEP = 1 / 120;     // 物理最大步長：每一幀都更新，畫面
 
 const $ = s => document.querySelector(s);
 const cv = $('#c'), ctx = cv.getContext('2d');
-const ov = $('#ov'), toastEl = $('#toast'), touchEl = $('#touch'), skipBtn = $('#skip'), txEl = $('#tx');
+const ov = $('#ov'), toastEl = $('#toast'), skipBtn = $('#skip'), txEl = $('#tx');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const hash = k => { const s = Math.sin(k * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 const norm = a => ((a % TAU) + TAU) % TAU;
@@ -42,7 +42,7 @@ function markDone(id) {
 // ─────────────────────────── 提示 ───────────────────────────
 let toastTimer;
 function toast(msg, dur = 2800) {
-  toastEl.textContent = msg; toastEl.classList.add('show');
+  toastEl.textContent = forTouch(msg); toastEl.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), dur);
 }
 function toastOnce(key, msg, cool = 3, dur) {

@@ -1,4 +1,6 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#8FD0E6">
 <title>平衡之道</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,6 +38,9 @@
     opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
   }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  /* 觸控時兩側上方有儀表和按鈕：橫向把提示收窄放中間，直向移到按鈕下面 */
+  #app.touch #toast { max-width: max(300px, calc(100% - 440px)); }
+  @media (orientation: portrait) { #app.touch #toast { top: 270px; max-width: calc(100% - 32px); } }
 
   #ov {
     position: absolute; inset: 0; overflow: auto;
@@ -105,21 +110,21 @@
   .know { background: #E4F4F1; border: 2px solid var(--teal); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
   .know b { color: var(--teal); }
 
-  #touch {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-    display: flex; justify-content: space-between; align-items: flex-end; gap: 10px;
-    pointer-events: none;
+  #pad { position: absolute; inset: 0; touch-action: none; }
+  #pz {
+    position: absolute; left: 16px; top: 14px; height: 32px; padding: 0;
+    background: transparent; border: 0; border-radius: 16px; cursor: pointer; touch-action: none;
   }
-  .tg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; pointer-events: auto; }
-  #tx { position: absolute; right: 16px; top: 112px; display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
+  #tx {
+    position: absolute; right: 16px; top: 112px;
+    display: grid; grid-template-columns: repeat(2, auto); gap: 8px; pointer-events: auto;
+  }
   .tb {
     font: inherit; font-weight: 900; font-size: 13px; color: var(--ink);
     background: rgba(255, 255, 255, .88); border: 2px solid var(--ink); border-radius: 14px;
     min-width: 64px; height: 44px; padding: 0 8px; touch-action: none;
   }
-  .tb.big { height: 64px; font-size: 16px; }
-  .tb.pedal { background: #FFF1C2; }
+  .tb.lit { background: var(--yellow); }
   .tb.on { background: var(--yellow); transform: translateY(2px); }
   @media (prefers-reduced-motion: reduce) {
     .btn, .ch, #toast { transition: none; }
@@ -128,35 +133,25 @@
 
 <div id="app">
   <canvas id="c"></canvas>
+  <!-- 觸控區（js/touch.js）：左半邊拖曳傾斜、右半邊點擊踩踏、右下按住煞車 -->
+  <div id="pad" hidden></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <button id="skip" class="btn" hidden>跳過重播（Enter）</button>
-  <div id="touch" hidden>
-    <div class="tg">
-      <button class="tb" data-k="crank">↑ 轉踏板</button>
-      <button class="tb" data-k="foot">F 放腳</button>
-      <button class="tb big" data-k="left">◀ 往左</button>
-      <button class="tb big" data-k="right">往右 ▶</button>
-    </div>
-    <div class="tg">
-      <button class="tb" data-k="rear">S 後煞</button>
-      <button class="tb" data-k="front">W 前煞</button>
-      <button class="tb big pedal" data-k="L">A 左腳</button>
-      <button class="tb big pedal" data-k="R">D 右腳</button>
-    </div>
-  </div>
   <div id="tx" hidden></div>
+  <button id="pz" aria-label="暫停" hidden></button>
   <div id="ov" hidden></div>
 </div>
 
-<!-- 每次更新把 ?v= 的數字加一，瀏覽器才不會用到舊檔案。載入順序：物理與鏡頭（純計算，可單獨測試）→ 共用 → 資料 → 道路 → 音效 → 遊戲邏輯 → 騎士 → 繪圖 → 儀表 → 流程 -->
-<script src="engine.js?v=25"></script>
-<script src="js/camera.js?v=25"></script>
-<script src="js/core.js?v=25"></script>
-<script src="js/data.js?v=25"></script>
-<script src="js/road.js?v=25"></script>
-<script src="js/audio.js?v=25"></script>
-<script src="js/game.js?v=25"></script>
-<script src="js/rider.js?v=25"></script>
-<script src="js/render-world.js?v=25"></script>
-<script src="js/hud.js?v=25"></script>
-<script src="js/main.js?v=25"></script>
+<!-- 每次更新把 ?v= 的數字加一，瀏覽器才不會用到舊檔案。載入順序：物理與鏡頭（純計算，可單獨測試）→ 共用 → 資料 → 道路 → 音效 → 遊戲邏輯 → 觸控 → 騎士 → 繪圖 → 儀表 → 流程 -->
+<script src="engine.js?v=26"></script>
+<script src="js/camera.js?v=26"></script>
+<script src="js/core.js?v=26"></script>
+<script src="js/data.js?v=26"></script>
+<script src="js/road.js?v=26"></script>
+<script src="js/audio.js?v=26"></script>
+<script src="js/game.js?v=26"></script>
+<script src="js/touch.js?v=26"></script>
+<script src="js/rider.js?v=26"></script>
+<script src="js/render-world.js?v=26"></script>
+<script src="js/hud.js?v=26"></script>
+<script src="js/main.js?v=26"></script>

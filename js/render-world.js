@@ -26,10 +26,13 @@ function band(xa, ya, sa, xb, yb, sb, u0, u1, col) {
 // 鏡頭邏輯在 camera.js：鏡頭沿著道路方向看、只在橫向跟隨車子；這裡只負責把它接到畫面上
 let V = null;
 function layout(camH = CAM_H) {
-  const pad = touchShown ? touchEl.offsetHeight + 4 : 0;
+  // 直向畫面窄又長：地平線上移、主角放低，前方的路才夠長
+  const portrait = H > W * 1.1;
   // 攝影機升高時地平線也稍微往上移，下方多一點空間看下坡
-  const hor = Math.round(H * (0.4 - 0.025 * (camH - CAM_H)));
-  const baseY = Math.max(hor + 60, Math.min(H * 0.88, H - pad - 6));
+  const hor = Math.round(H * ((portrait ? 0.3 : 0.4) - 0.025 * (camH - CAM_H)));
+  const baseY = Math.max(hor + 60, H * (portrait ? 0.8 : 0.88));
+  // 直向時限制主角附近每公尺的像素（約 7 公尺寬塞滿畫面），用把攝影機拉高來讓主角仍站在 baseY
+  if (portrait) camH = Math.max(camH, (baseY - hor) / (W / 7));
   // 主角固定在 baseY：攝影機越高，焦距越短，主角就越小
   return { hor, baseY, camH, F: (baseY - hor) * CAM_D / camH };
 }

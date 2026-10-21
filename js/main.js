@@ -3,14 +3,16 @@
 // ─────────────────────────── 流程與面板 ───────────────────────────
 function openOv(html) {
   skipBtn.hidden = true; txEl.hidden = true;
-  ov.innerHTML = html; ov.hidden = false;
+  ov.innerHTML = touchShown ? html.replace(/（Enter）/g, '') : html; ov.hidden = false;
   const p = ov.querySelector('[data-primary]'); if (p) setTimeout(() => p.focus({ preventScroll: true }), 30);
 }
 function closeOv() { ov.hidden = true; ov.innerHTML = ''; }
 const on = (sel, fn) => { const el = ov.querySelector(sel); if (el) el.onclick = () => { sfx.init(); fn(); }; };
 
 function keysHTML(c) {
-  if (touchShown) return '<p class="lead">手機操作：右下角左右腳交替點按踩踏板，左下角往左／往右傾，上排是煞車、放腳與轉踏板；本章特殊按鈕在右上角。</p>';
+  if (touchShown) return `<ul class="pts lead"><li>左手放在左半邊任何地方，左右拖曳：拖越遠傾越多，放開回正</li>
+    <li>右手在右半邊左右交替點：左腳、右腳踩踏板</li><li>右下角按住（或踩踏的手指往下滑）是後煞</li>
+    <li>${c ? '本章特殊按鈕在右上角；點左上角章節名稱暫停' : '每章需要的按鈕會出現在右上角；點左上角章節名稱暫停'}</li></ul>`;
   const k = [['A', 'D', '左右腳交替踩'], ['←', '→', '往左／往右傾'], ['S', '', '後煞'], ['W', '', '前煞（很猛）'], ['F', '', '伸腳落地'], ['↑', '', '倒轉踏板'], ['空白鍵', '', '鈴鐺'], ['Esc', '', '暫停']];
   if (!c || c.gears) k.push(['Z', 'X', '換輕檔／重檔']);
   if (!c || c.safety) k.push(['Q', 'E', '左轉／右轉手勢']);
@@ -25,7 +27,7 @@ function showMenu() {
   let html = `<div class="card"><p class="eyebrow">腳踏車學騎遊戲</p><h1>平衡之道</h1>
     <p class="lead">從跌倒到飛馳。每一章學一個真正騎車用得到的技巧，摔車時會用慢動作告訴你原因。</p><div class="chs">`;
   CH.forEach((c, i) => {
-    const open = i === 0 || done.includes(CH[i - 1].id) || location.hash === '#all', ok = done.includes(c.id);
+    const open = i === 0 || done.includes(CH[i - 1].id) || location.hash.includes('all'), ok = done.includes(c.id);
     if (open && !ok && firstOpen < 0) firstOpen = i;
     html += `<button class="ch" data-ch="${i}" ${open ? '' : 'disabled'}><span class="num">${c.id}</span>
       <span class="meta"><b>${c.name}</b><small>${c.sub}</small></span>
@@ -46,7 +48,7 @@ function showIntro() {
   S.mode = 'intro';
   openOv(`<div class="card"><p class="eyebrow">第 ${c.id} 章．${c.sub}</p><h2>${c.name}</h2>
     <p class="story">${c.story}</p><p class="goal">目標：${c.goalText}</p>
-    <ul class="pts">${c.points.map(p => `<li>${p}</li>`).join('')}</ul>
+    <ul class="pts">${c.points.map(p => `<li>${forTouch(p)}</li>`).join('')}</ul>
     <div class="row"><button class="btn primary" id="go" data-primary>開始騎（Enter）</button><button class="btn" id="back">回選單</button></div></div>`);
   on('#go', startPlay); on('#back', showMenu);
 }
@@ -56,7 +58,7 @@ function startPlay() {
   closeOv(); clearKeys(); resetRun(); S.mode = 'play'; last = performance.now();
   setupTouchExtras();
   const msg = {
-    1: touchShown ? '左右腳按鈕交替點，大約每秒一下，爸爸會扶著你' : '按 A、D 左右交替踩踏板，大約每秒一下就好，爸爸會扶著你',
+    1: touchShown ? '右手在右半邊左右交替點，大約每秒一下，爸爸會扶著你' : '按 A、D 左右交替踩踏板，大約每秒一下就好，爸爸會扶著你',
     2: '你一腳踩地停著。先看左下角的踏板鐘，按 ↑ 把紅色踏板轉進綠色區，再按 D 起步',
     3: '公園彎道：車身往哪邊傾斜，就會往哪邊轉',
     4: '郊外丘陵：右下角是檔位和坡度，上坡前記得換輕檔',
@@ -72,7 +74,7 @@ function skipReplay() { if (S.mode !== 'replay') return; S.rpDone = true; S.rp =
 function showCrash() {
   const r = REASONS[S.crashKey] || ['摔車了', ''];
   S.mode = 'crash';
-  openOv(`<div class="card"><p class="eyebrow">${S.crashKey === 'redlight' ? '違規了' : '摔車了'}．第 ${S.attempts} 次</p><h2>${r[0]}</h2><p>${r[1]}</p>
+  openOv(`<div class="card"><p class="eyebrow">${S.crashKey === 'redlight' ? '違規了' : '摔車了'}．第 ${S.attempts} 次</p><h2>${r[0]}</h2><p>${forTouch(r[1])}</p>
     <div class="row"><button class="btn primary" id="retry" data-primary>再試一次（Enter）</button>
     <button class="btn" id="again">再看重播</button><button class="btn" id="back">回選單</button></div></div>`);
   on('#retry', startPlay); on('#again', () => { closeOv(); startReplay(); }); on('#back', showMenu);
@@ -108,7 +110,8 @@ function resume() { closeOv(); S.mode = 'play'; last = performance.now(); setupT
 // ─────────────────────────── 主迴圈 ───────────────────────────
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.min(0.05, (now - last) / 1000), t0 = performance.now(); last = now;
+  if (PERF.on && dt > 0) PERF.fps += (1 / dt - PERF.fps) * 0.05;
   if (S.mode === 'play') {
     // 依照這一幀實際經過的時間推進物理（切成小步），畫面每一幀都是最新狀態
     let rem = dt;
@@ -122,6 +125,7 @@ function frame(now) {
   }
   sfx.update();
   render();
+  if (PERF.on) PERF.ms += (performance.now() - t0 - PERF.ms) * 0.05;   // 物理 + 送出繪圖指令的時間
   requestAnimationFrame(frame);
 }
 
