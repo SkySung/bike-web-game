@@ -1,5 +1,5 @@
 // 手機觸控：左半邊拖曳控制傾斜（類比量）、右半邊左右交替點擊踩踏、右下角按住（或往下滑）後煞；
-// 依章節出現的小按鈕；觸控時的提示文字改成觸控說法
+// 依章節出現的小按鈕；提示文字的觸控說法在 i18n.js（CTL）
 
 // ─────────────────────────── 狀態 ───────────────────────────
 let touchShown = false;
@@ -13,7 +13,7 @@ const padEl = $('#pad'), pzEl = $('#pz');
 
 function showTouch() {
   if (touchShown) return;
-  touchShown = true; padEl.hidden = false; $('#app').classList.add('touch'); skipBtn.textContent = '跳過重播';
+  touchShown = true; padEl.hidden = false; $('#app').classList.add('touch'); skipBtn.textContent = t('skip');
   if (S.mode === 'play') setupTouchExtras();
 }
 if (window.matchMedia && matchMedia('(pointer: coarse)').matches) showTouch();
@@ -85,12 +85,12 @@ function bindTouch(b) {
 }
 function setupTouchExtras() {
   const c = CH[S.ch], btns = [];
-  if (c.footStart) btns.push(['crank', '轉踏板'], ['foot', '放腳']);
-  if (c.id === 2) btns.push(['front', '前煞']);
-  if (c.gears) btns.push(['gearDown', '輕檔'], ['gearUp', '重檔']);
-  if (c.safety) btns.push(['sigL', '左手勢'], ['sigR', '右手勢'], ['bell', '鈴 🔔']);
-  if (c.wet) btns.push(['light', '車燈']);
-  txEl.innerHTML = btns.map(([k, t]) => `<button class="tb" data-k="${k}">${t}</button>`).join('');
+  if (c.footStart) btns.push(['crank', 'tbCrank'], ['foot', 'tbFoot']);
+  if (c.id === 2) btns.push(['front', 'tbFront']);
+  if (c.gears) btns.push(['gearDown', 'tbLow'], ['gearUp', 'tbHigh']);
+  if (c.safety) btns.push(['sigL', 'tbSigL'], ['sigR', 'tbSigR'], ['bell', 'tbBell']);
+  if (c.wet) btns.push(['light', 'tbLight']);
+  txEl.innerHTML = btns.map(([k, key]) => `<button class="tb" data-k="${k}">${t(key)}</button>`).join('');
   txEl.querySelectorAll('[data-k]').forEach(bindTouch);
   txEl.hidden = !(touchShown && btns.length);
 }
@@ -106,7 +106,7 @@ function syncTouchDOM(labelW) {
     const lit = b.dataset.k === 'foot' ? S.footDown : b.dataset.k === 'light' ? S.light : false;
     if (b.classList.contains('lit') !== lit) b.classList.toggle('lit', lit);
     // 腳踩著地時，同一顆按鈕是「起步」（蹬地）
-    if (b.dataset.k === 'foot') { const tx = S.footDown && S.v < 0.3 ? '起步' : '放腳'; if (b.textContent !== tx) b.textContent = tx; }
+    if (b.dataset.k === 'foot') { const tx = t(S.footDown && S.v < 0.3 ? 'tbPush' : 'tbFoot'); if (b.textContent !== tx) b.textContent = tx; }
   }
 }
 
@@ -122,8 +122,8 @@ function drawTouchUI() {
   ctx.fillStyle = dark ? 'rgba(238,243,248,.06)' : 'rgba(30,43,51,.06)';
   rr(W / 2 + 8, H - bh + 6, W / 2 - 16, bh - 12, 16); ctx.fill();
   ctx.font = `900 13px ${FONT}`; ctx.fillStyle = faint;
-  ctx.fillText(K.rear ? '煞車中' : '按住煞車', W * 0.75, H - bh / 2);
-  ctx.fillText('左腳', W * 0.625, H - bh - 18); ctx.fillText('右腳', W * 0.875, H - bh - 18);
+  ctx.fillText(t(K.rear ? 'tzBraking' : 'tzBrake'), W * 0.75, H - bh / 2);
+  ctx.fillText(t('tzLeft'), W * 0.625, H - bh - 18); ctx.fillText(t('tzRight'), W * 0.875, H - bh - 18);
 
   // 左手：按下的位置畫一條弧線，亮的那段是現在的傾斜量
   const L = TT.lean;
@@ -154,36 +154,19 @@ function drawTouchUI() {
 
 // 第 1 章開頭：半透明的拇指示範「左手左右拖、右手左右交替點」
 function drawThumbHint(now) {
-  const t = now / 1000, a = Math.min(1, S.t / 0.5) * Math.min(1, (7 - S.t) / 1);
+  const sec = now / 1000, a = Math.min(1, S.t / 0.5) * Math.min(1, (7 - S.t) / 1);
   const thumb = (x, y, r, alpha) => {
     ctx.beginPath(); ctx.ellipse(x, y, r * 0.8, r, 0, 0, TAU);
     ctx.fillStyle = `rgba(255,255,255,${alpha})`; ctx.fill();
     ctx.strokeStyle = `rgba(30,43,51,${alpha})`; ctx.lineWidth = 2; ctx.stroke();
   };
-  const lx = W * 0.22 + Math.sin(t * 2.4) * 34, ly = H * 0.72;
+  const lx = W * 0.22 + Math.sin(sec * 2.4) * 34, ly = H * 0.72;
   ctx.beginPath(); ctx.moveTo(W * 0.22 - 44, ly + 30); ctx.lineTo(W * 0.22 + 44, ly + 30);
   ctx.strokeStyle = `rgba(255,255,255,${0.6 * a})`; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.stroke();
   thumb(lx, ly, 22, 0.55 * a);
-  const beat = Math.floor(t * 2) % 2, p = (t * 2) % 1;
+  const beat = Math.floor(sec * 2) % 2, p = (sec * 2) % 1;
   [W * 0.625, W * 0.875].forEach((x, i) => thumb(x, H * 0.55 + (i === beat ? p * 6 : 0), 20, (i === beat ? 0.6 : 0.25) * a));
   ctx.font = `900 14px ${FONT}`; ctx.fillStyle = `rgba(30,43,51,${0.8 * a})`;
-  ctx.fillText('左手左右拖：傾斜', W * 0.22, ly - 40);
-  ctx.fillText('右手左右交替點：踩踏', W * 0.75, H * 0.55 - 42);
+  ctx.fillText(t('thumbLean'), W * 0.22, ly - 40);
+  ctx.fillText(t('thumbPedal'), W * 0.75, H * 0.55 - 42);
 }
-
-// ─────────────────────────── 提示文字改成觸控說法 ───────────────────────────
-const TOUCH_TEXT = [
-  [/按住\s?→\s?/g, '左手按住往右拖'], [/按住\s?←\s?/g, '左手按住往左拖'],
-  [/按\s?→\s?/g, '左手往右拖'], [/按\s?←\s?/g, '左手往左拖'],
-  [/按住方向鍵/g, '左手按住往左右拖'], [/按住轉彎方向的鍵/g, '左手往轉彎方向拖'],
-  [/A、D\s?(左右)?交替踩/g, '左右腳交替點'], [/A、D/g, '左右腳'],
-  [/按\s?↑\s?/g, '按「轉踏板」'], [/按\s?D\s?/g, '點右腳'],
-  [/按住\s?S\s?用後煞/g, '按住右下角煞車'], [/\s?S\s?後煞/g, '右下角煞車'], [/\s?S\s?煞車/g, '右下角煞車'],
-  [/用\s?S\s?/g, '用右下角煞車'], [/按\s?S\s?/g, '按右下角煞車'], [/（S）/g, '（右下角）'],
-  [/；W 前煞很猛/g, '；前煞很猛'], [/（W）/g, ''],
-  [/F\s?(放腳|伸腳)/g, '「放腳」'], [/按\s?F\s?/g, '按「放腳」'], [/（F）/g, ''],
-  [/按\s?Z\s?換(到)?輕檔/g, '按「輕檔」'], [/按\s?X\s?換重檔/g, '按「重檔」'], [/（X）/g, ''],
-  [/按\s?L\s?/g, '按「車燈」'], [/按\s?Q\s?/g, '按「左手勢」'], [/按\s?E\s?/g, '按「右手勢」'],
-  [/按空白鍵按鈴/g, '按「鈴」'], [/左下角的踏板鐘/g, '左上方的踏板鐘']
-];
-const forTouch = s => touchShown ? TOUCH_TEXT.reduce((t, [a, b]) => t.replace(a, b), s) : s;

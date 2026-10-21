@@ -42,7 +42,8 @@ function markDone(id) {
 // ─────────────────────────── 提示 ───────────────────────────
 let toastTimer;
 function toast(msg, dur = 2800) {
-  toastEl.textContent = forTouch(msg); toastEl.classList.add('show');
+  if (LANG === 'en') dur = Math.max(dur, msg.length * 55);   // 英文比較長，讀的時間跟著加長
+  toastEl.textContent = msg; toastEl.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), dur);
 }
 function toastOnce(key, msg, cool = 3, dur) {

@@ -14,7 +14,7 @@ function drawHUD(st) {
   ctx.textBaseline = 'middle';
   ctx.font = `900 14px ${FONT}`; ctx.textAlign = 'left';
   // 觸控時章節名稱前面加暫停符號，整塊可以點（#pz 蓋在上面）
-  const label = `${touchShown ? 'Ⅱ  ' : ''}第 ${c.id} 章　${c.name}`, lw = ctx.measureText(label).width + 28;
+  const label = `${touchShown ? 'Ⅱ  ' : ''}${t('hudCh', { n: c.id, name: c.name })}`, lw = ctx.measureText(label).width + 28;
   if (touchShown) syncTouchDOM(lw);
   ctx.fillStyle = INK; rr(16, top, lw, 32, 16); ctx.fill();
   if (sc.dark) { ctx.strokeStyle = '#EEF3F8'; ctx.lineWidth = 1.5; ctx.stroke(); }
@@ -24,13 +24,13 @@ function drawHUD(st) {
   ctx.fillStyle = YEL; rr(16, top + 42, Math.max(10, pw * prog), 10, 5); ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 2; rr(16, top + 42, pw, 10, 5); ctx.stroke();
   ctx.textAlign = 'left'; ctx.font = `700 12px ${FONT}`; ctx.fillStyle = ink;
-  if (c.id === 2) ctx.fillText(`停車 ${Math.min(S.stopIdx, 3)} / 3`, 16 + pw + 10, top + 48);
+  if (c.id === 2) ctx.fillText(t('hudStops', { n: Math.min(S.stopIdx, 3) }), 16 + pw + 10, top + 48);
 
   ctx.textAlign = 'right'; ctx.fillStyle = ink;
   ctx.font = `800 34px ${NUMF}`; ctx.fillText(String(Math.round(st.v * 3.6)), W - 62, top + 20);
   ctx.font = `700 12px ${FONT}`; ctx.fillText('km/h', W - 18, top + 24);
-  if (c.safety) chip(W - 16, top + 42, `安全分數 ${S.safety}`, S.safety >= 80 ? TEAL : S.safety >= 60 ? '#D98B1C' : RED, '#fff', 'right');
-  if (c.wet) chip(W - 16, top + 42, S.light ? '車燈 開' : touchShown ? '車燈 關' : '車燈 關（L）', S.light ? YEL : RED, S.light ? INK : '#fff', 'right');
+  if (c.safety) chip(W - 16, top + 42, t('hudSafety', { n: S.safety }), S.safety >= 80 ? TEAL : S.safety >= 60 ? '#D98B1C' : RED, '#fff', 'right');
+  if (c.wet) chip(W - 16, top + 42, S.light ? t('hudLightOn') : t('hudLightOff') + (touchShown ? '' : t('hudLightKey')), S.light ? YEL : RED, S.light ? INK : '#fff', 'right');
 
   // 水平儀
   // 手機橫向畫面矮：縮小放到最上排（章節名稱和速度之間），不擋前面的路
@@ -51,7 +51,7 @@ function drawHUD(st) {
   ctx.font = `900 16px ${FONT}`; ctx.textAlign = 'center';
   ctx.fillStyle = st.want < -0.15 ? RED : sc.dark ? 'rgba(238,243,248,.35)' : 'rgba(30,43,51,.3)'; ctx.fillText('◀', vx - 12, vy + vh / 2 + 1);
   ctx.fillStyle = st.want > 0.15 ? RED : sc.dark ? 'rgba(238,243,248,.35)' : 'rgba(30,43,51,.3)'; ctx.fillText('▶', vx + vw + 12, vy + vh / 2 + 1);
-  ctx.font = `700 11px ${FONT}`; ctx.fillStyle = ink; if (!slim) ctx.fillText('平衡', W / 2, vy + vh + 12);
+  ctx.font = `700 11px ${FONT}`; ctx.fillStyle = ink; if (!slim) ctx.fillText(t('hudBalance'), W / 2, vy + vh + 12);
 
   if (touchShown) { drawTouchColumn(st, c, ink, top + (slim ? 64 : 112)); ctx.textBaseline = 'alphabetic'; return; }
 
@@ -69,8 +69,8 @@ function drawHUD(st) {
     ctx.fillStyle = INK; ctx.font = `800 15px ${NUMF}`; ctx.textAlign = 'center'; ctx.fillText(f === 'L' ? 'A' : 'D', fx0 + i * 34 + 14, base - 38);
   });
   ctx.textAlign = 'left';
-  if (S.combo >= 3) { ctx.font = `800 13px ${FONT}`; ctx.fillStyle = RED; ctx.fillText(`節奏 ×${S.combo}`, fx0, base - 68); }
-  if (st.footDown) { ctx.font = `700 12px ${FONT}`; ctx.fillStyle = ink; ctx.fillText('腳踩地中', fx0, base - 8); }
+  if (S.combo >= 3) { ctx.font = `800 13px ${FONT}`; ctx.fillStyle = RED; ctx.fillText(t('hudRhythm', { n: S.combo }), fx0, base - 68); }
+  if (st.footDown) { ctx.font = `700 12px ${FONT}`; ctx.fillStyle = ink; ctx.fillText(t('hudFootDown'), fx0, base - 8); }
 
   // 右下：第 4 章變速面板；有彎道的章節顯示小地圖
   if (c.gears) drawGearPanel(W - 16 - 168, base - 112);
@@ -101,7 +101,7 @@ function drawPedalClock(dx, dy, st, ink) {
   line([[dx, dy], [dx + 20 * Math.sin(ca), dy - 20 * Math.cos(ca)]], 4, RED);
   ctx.beginPath(); ctx.arc(dx + 20 * Math.sin(ca), dy - 20 * Math.cos(ca), 4.5, 0, TAU); ctx.fillStyle = RED; ctx.fill();
   ctx.beginPath(); ctx.arc(dx, dy, 32, 0, TAU); ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.fillStyle = ink; ctx.font = `700 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('右踏板', dx, dy - 44);
+  ctx.fillStyle = ink; ctx.font = `700 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(t('hudPedal'), dx, dy - 44);
 }
 
 function drawTrafficLight(x, y, ink) {
@@ -125,7 +125,7 @@ function drawGearPanel(x, y) {
   ctx.fillStyle = 'rgba(255,255,255,.92)'; rr(x, y, w, h, 12); ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
   ctx.textAlign = 'left'; ctx.fillStyle = INK; ctx.font = `700 11px ${FONT}`;
-  ctx.fillText(touchShown ? '檔位' : '檔位（Z 輕 / X 重）', x + 12, y + 16);
+  ctx.fillText(t('hudGear') + (touchShown ? '' : t('hudGearKeys')), x + 12, y + 16);
   for (let g = 0; g < 5; g++) {
     const bh = 10 + g * 5, bx = x + 12 + g * 22;
     ctx.fillStyle = g === S.gear ? RED : g < S.gear ? '#F4A08F' : '#DCE6EA';
@@ -134,15 +134,15 @@ function drawGearPanel(x, y) {
   ctx.font = `800 26px ${NUMF}`; ctx.fillStyle = INK; ctx.fillText(String(S.gear + 1), x + 128, y + 40);
   const gp = Math.round(S.grade * 100);
   ctx.font = `700 12px ${FONT}`; ctx.fillStyle = INK;
-  ctx.fillText(`坡度 ${gp > 0 ? '+' : ''}${gp}%`, x + 12, y + 68);
+  ctx.fillText(t('hudGrade', { g: (gp > 0 ? '+' : '') + gp }), x + 12, y + 68);
   const bar = (label, v, yy) => {
     ctx.fillStyle = INK; ctx.font = `700 11px ${FONT}`; ctx.fillText(label, x + 12, yy);
     ctx.fillStyle = '#DCE6EA'; rr(x + 70, yy - 5, 84, 10, 5); ctx.fill();
     ctx.fillStyle = v > 1 ? RED : v > 0.8 ? '#E9A23B' : TEAL; rr(x + 70, yy - 5, Math.max(6, 84 * Math.min(1, v)), 10, 5); ctx.fill();
   };
-  bar('踩踏負荷', S.strain / 1.3, y + 86);
-  bar('煞車溫度', S.rearHeat / 3.5, y + 102);
-  if (S.strain > 1 && S.t - S.lastPedalT < E.P.PEDAL_WINDOW) { ctx.fillStyle = RED; ctx.font = `900 12px ${FONT}`; ctx.fillText('踩不動！', x + 100, y + 68); }
+  bar(t('hudEffort'), S.strain / 1.3, y + 86);
+  bar(t('hudHeat'), S.rearHeat / 3.5, y + 102);
+  if (S.strain > 1 && S.t - S.lastPedalT < E.P.PEDAL_WINDOW) { ctx.fillStyle = RED; ctx.font = `900 12px ${FONT}`; ctx.fillText(t('hudStrain'), x + 100, y + 68); }
 }
 
 function drawMinimap(st, mx, my, box) {
@@ -160,14 +160,14 @@ function drawMinimap(st, mx, my, box) {
 }
 
 function drawReplay() {
-  const r = REASONS[S.crashKey] || ['摔車了', ''];
+  const r = REASONS[S.crashKey] || [t('crashed'), ''];
   ctx.fillStyle = 'rgba(30,43,51,.18)'; ctx.fillRect(0, 0, W, H);
   ctx.textBaseline = 'middle';
   const bw = Math.min(W - 32, 420), bx = (W - bw) / 2, by = H * 0.26;
   ctx.fillStyle = '#fff'; rr(bx, by, bw, 64, 14); ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.stroke();
   ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(bx + 22, by + 20, 6, 0, TAU); ctx.fill();
-  ctx.font = `700 12px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = INK; ctx.fillText('慢動作重播 ×0.35', bx + 34, by + 20);
+  ctx.font = `700 12px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = INK; ctx.fillText(t('hudReplay'), bx + 34, by + 20);
   ctx.font = `900 20px ${FONT}`; ctx.fillText(r[0], bx + 16, by + 45);
   ctx.textBaseline = 'alphabetic';
 }

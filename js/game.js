@@ -28,10 +28,10 @@ function pedal(f) {
   if (S.mode !== 'play' || S.crashT) return;
   const c = CH[S.ch];
   S.footDown = false;
-  if (c.id === 1 && !S.dadPushing) { S.dadPushing = true; toast('爸爸扶著你往前推，繼續 A、D 交替踩！'); }
+  if (c.id === 1 && !S.dadPushing) { S.dadPushing = true; toast(t('dadPush')); }
   if (S.lastFoot === f) {
     S.v *= 0.85; S.combo = 0; S.leanV += (Math.random() - 0.5) * 0.6;
-    toastOnce('same', '同一隻腳連踩，踏板卡住了！要 A、D 左右交替', 2.5);
+    toastOnce('same', t('sameFoot'), 2.5);
     sfx.clunk(); return;
   }
   const interval = S.t - S.lastPedalT;
@@ -47,10 +47,10 @@ function pedal(f) {
     const a = norm(S.crank + (f === 'L' ? Math.PI : 0));
     if (a > 0.3 && a < 1.8) {
       imp = 2.2;
-      if (c.id === 2) toast('漂亮的起步！踏板在高位，第一腳最有力');
+      if (c.id === 2) toast(t('goodStart'));
     } else {
       imp = 0.7; S.leanV += (Math.random() < 0.5 ? -1 : 1) * 0.5;
-      if (c.id >= 2) toastOnce('lowstart', '踏板在低位，起步沒力又搖晃。停下時按 ↑ 把踏板轉到約 2 點鐘', 4, 3400);
+      if (c.id >= 2) toastOnce('lowstart', t('lowStart'), 4, 3400);
     }
   } else imp = 0.12;
   S.v += imp / Math.max(1, S.strain);
@@ -62,7 +62,7 @@ function toggleFoot() {
   // 停著時再按一次是「起步」：踩地的腳往後一蹬，車子先有一點速度（仍低於 0.6，第一腳照樣看踏板位置）
   if (S.footDown && S.v < 0.3) {
     S.footDown = false; S.v = Math.max(S.v, 0.5); sfx.tick();
-    toastOnce('push', '腳往後一蹬，車子動了！趁還沒倒，馬上踩下第一腳', 8, 2400);
+    toastOnce('push', t('push'), 8, 2400);
     return;
   }
   S.footDown = !S.footDown; sfx.tick();
@@ -70,7 +70,7 @@ function toggleFoot() {
 function adjustCrank() {
   if (S.mode !== 'play' || S.crashT) return;
   if (S.v < 0.6) { S.crank -= Math.PI / 6; sfx.tick(); }
-  else toastOnce('crankmove', '騎行中不用調踏板，停下來再轉', 4);
+  else toastOnce('crankmove', t('crankMove'), 4);
 }
 function setGear(g) {
   if (!CH[S.ch].gears || S.mode !== 'play') return;
@@ -84,14 +84,14 @@ function signal(dir) {
 function toggleLight() {
   if (S.mode !== 'play' || !CH[S.ch].wet) return;
   S.light = !S.light; sfx.tick();
-  toast(S.light ? '車燈打開了，前面的路看得清楚多了' : '車燈關掉了', 1600);
+  toast(t(S.light ? 'lightOn' : 'lightOff'), 1600);
 }
 function ringBell() {
   sfx.bell();
   const c = CH[S.ch];
   if (S.mode === 'play' && c.zebra != null && S.ped.active && !S.ped.gone && !S.ped.rung && S.x > c.zebra - 32 && S.x < c.zebra + 1) {
     S.ped.rung = true; S.ped.v = 2.6;
-    toast('行人聽到鈴聲，加快腳步通過了', 2400);
+    toast(t('pedRung'), 2400);
   }
 }
 
@@ -122,7 +122,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Enter' && !ov.hidden) {
     const p = ov.querySelector('[data-primary]'); if (p) { e.preventDefault(); p.click(); } return;
   }
-  if (e.code === 'KeyM') { sfx.muted = !sfx.muted; toast(sfx.muted ? '已靜音（M 恢復）' : '已開啟音效', 1400); return; }
+  if (e.code === 'KeyM') { sfx.muted = !sfx.muted; toast(t(sfx.muted ? 'muted' : 'soundOn'), 1400); return; }
   const a = KEYMAP[e.code]; if (!a) return;
   e.preventDefault();
   if (e.repeat) return;
@@ -195,13 +195,13 @@ function step(dt) {
   const wet = c.wet ? 0.6 : 1;
   if (c.gears) {
     if (K.rear && S.v > 1.5) S.rearHeat = Math.min(5, S.rearHeat + dt); else S.rearHeat = Math.max(0, S.rearHeat - dt * 1.5);
-    if (S.rearHeat > 3.5 && !S.faded) { S.faded = true; toast('煞車一直捏著過熱了，越來越煞不住！放開讓它冷卻，改成一下一下點放', 3600); }
+    if (S.rearHeat > 3.5 && !S.faded) { S.faded = true; toast(t('fade'), 3600); }
     if (S.faded && S.rearHeat < 1) S.faded = false;
   }
   const frontLimit = c.wet ? 2.5 : 3.4;
   if (K.front) {
     if (S.v > frontLimit) S.frontHold += dt; else S.frontHold = Math.max(0, S.frontHold - dt);
-    if (S.v > 2.5) toastOnce('front', c.wet ? '雨天前煞很容易打滑！改用 S 後煞' : '前煞很猛！高速時用力按會翻車，主要用 S 後煞', 8);
+    if (S.v > 2.5) toastOnce('front', t(c.wet ? 'frontWet' : 'frontDry'), 8);
   } else S.frontHold = Math.max(0, S.frontHold - dt * 2);
   S.pitch = c.wet ? 0 : S.frontHold * 0.4;
   if (S.frontHold > (c.wet ? 0.25 : 0.35)) return crash(c.wet ? 'wetfront' : 'flip');
@@ -216,9 +216,9 @@ function step(dt) {
 
   if (E.stepLean(S, c, dt)) return crash('lean');
   if (S.grip > 0.85 && S.v > 2)
-    toastOnce('grip', c.wet ? '雨天輪胎快抓不住了！少傾一點、先減速' : '太快了，輪胎快抓不住！先減速再轉', 6, 2200);
+    toastOnce('grip', t(c.wet ? 'gripWet' : 'gripDry'), 6, 2200);
   if (c.turn < 1 && S.assist < 0.5 && Math.abs(S.lean) > 0.4 && S.v > 0.9)
-    toastOnce('lean', S.lean < 0 ? '往左倒了！按 → 把車扶正' : '往右倒了！按 ← 把車扶正', 4, 1800);
+    toastOnce('lean', t(S.lean < 0 ? 'leanL' : 'leanR'), 4, 1800);
 
   move(dt);
   if (c.turn === 1 && Math.abs(S.d) > sc.half + 0.35) return crash('offroad');
@@ -236,18 +236,18 @@ function step(dt) {
 
 function rulesYard() {
   if (S.dadPushing && S.x > 20) S.assist = Math.max(0, 1 - (S.x - 20) / 26);
-  if (!S.flags.steer && S.x > 5) { S.flags.steer = 1; toast('車往左倒就按 →、往右倒就按 ←，把車扶正', 3400); }
-  if (!S.flags.release && S.x > 38) { S.flags.release = 1; toast('爸爸偷偷放手了！你自己在騎了！', 3400); sfx.ding(); }
-  if (!S.flags.fast && S.x > 66) { S.flags.fast = 1; toast('發現了嗎？騎快一點，車子反而更穩'); }
+  if (!S.flags.steer && S.x > 5) { S.flags.steer = 1; toast(t('yardSteer'), 3400); }
+  if (!S.flags.release && S.x > 38) { S.flags.release = 1; toast(t('yardRelease'), 3400); sfx.ding(); }
+  if (!S.flags.fast && S.x > 66) { S.flags.fast = 1; toast(t('yardFast')); }
 }
 
 function rulesStreet(c) {
   const z = c.stops[S.stopIdx];
   if (z == null) return false;
-  if (!S.flags['near' + S.stopIdx] && S.x > z - 16) { S.flags['near' + S.stopIdx] = 1; toast('前方停車格：按住 S 後煞減速，快停住時按 F 伸腳', 3400); }
+  if (!S.flags['near' + S.stopIdx] && S.x > z - 16) { S.flags['near' + S.stopIdx] = 1; toast(t('stopNear'), 3400); }
   if (S.x >= z - 0.3 && S.x <= z + ZONE && S.v < 0.05 && S.footDown) {
     S.stopIdx++; sfx.ding();
-    toast(S.stopIdx < c.stops.length ? `第 ${S.stopIdx} 次停車成功！起步前先看踏板鐘` : '三次停車都成功！騎到終點', 3200);
+    toast(S.stopIdx < c.stops.length ? t('stopOk', { n: S.stopIdx }) : t('stopAll'), 3200);
   } else if (S.x > z + ZONE + 0.4) { crash('overrun'); return true; }
   return false;
 }
@@ -257,26 +257,26 @@ function rulesPark(c, road) {
     const k = 'curve' + cvv.s;
     if (!S.flags[k] && S.x > cvv.s - 11 && S.x < cvv.s) {
       S.flags[k] = 1;
-      toast(cvv.dir > 0 ? '前方右彎：按住 → 讓車身往右傾，過完彎就放開' : '前方左彎：按住 ← 讓車身往左傾，過完彎就放開', 3200);
+      toast(t(cvv.dir > 0 ? 'curveR' : 'curveL'), 3200);
     }
-    if (cvv.R < 10 && S.x > cvv.s - 15 && S.x < cvv.s + 5 && S.v > 4.6) toastOnce('fast', '這是急彎！先按 S 減速', 5);
+    if (cvv.R < 10 && S.x > cvv.s - 15 && S.x < cvv.s + 5 && S.v > 4.6) toastOnce('fast', t('sharp'), 5);
   }
-  if (!S.flags.intro2 && S.t > 3.5) { S.flags.intro2 = 1; toast('轉彎靠傾斜：按住方向鍵讓車身傾斜，傾斜越多轉得越急', 3600); }
+  if (!S.flags.intro2 && S.t > 3.5) { S.flags.intro2 = 1; toast(t('parkIntro'), 3600); }
 }
 
 function rulesHills(c, road) {
   const gAhead = E.segAt(road.gr, S.x + 12);
   const pedaling = S.t - S.lastPedalT < E.P.PEDAL_WINDOW;
-  if (gAhead > 0.04 && S.grade <= 0.03 && S.gear > 1) toastOnce('up', `前面上坡 ${Math.round(gAhead * 100)}%：按 Z 換到輕檔（1、2 檔）`, 8, 3200);
-  if (gAhead < -0.04 && S.grade >= -0.03) toastOnce('down', '前面下坡：換重檔（X），用 S 一下一下點放煞車控制速度', 8, 3400);
-  if (pedaling && S.strain > 1.15) toastOnce('strain', '踩不動了！按 Z 換輕檔', 4);
-  if (pedaling && S.grade <= 0 && S.gear <= 1 && S.v > S.target + 0.5) toastOnce('spin', '檔位太輕，腳在空轉。按 X 換重檔', 6);
+  if (gAhead > 0.04 && S.grade <= 0.03 && S.gear > 1) toastOnce('up', t('hillUp', { g: Math.round(gAhead * 100) }), 8, 3200);
+  if (gAhead < -0.04 && S.grade >= -0.03) toastOnce('down', t('hillDown'), 8, 3400);
+  if (pedaling && S.strain > 1.15) toastOnce('strain', t('hillStrain'), 4);
+  if (pedaling && S.grade <= 0 && S.gear <= 1 && S.v > S.target + 0.5) toastOnce('spin', t('hillSpin'), 6);
   let inZone = null;
   for (const z of road.zones) if (S.x > z.s0 && S.x < z.s1) inZone = z;
   // 建議速度：太快的話要傾很多才轉得過去，輪胎抓地力不夠就會開始晃、打滑（engine.js 的抓地力模型）
-  if (inZone && S.v * 3.6 > inZone.lim + 2) toastOnce('over', `超過彎道建議速度 ${inZone.lim} km/h，點放 S 煞車`, 4, 1800);
+  if (inZone && S.v * 3.6 > inZone.lim + 2) toastOnce('over', t('hillOver', { lim: inZone.lim }), 4, 1800);
   for (const z of road.zones) {
-    if (!S.flags['lim' + z.s0] && S.x > z.s0 - 25 && S.x < z.s0) { S.flags['lim' + z.s0] = 1; toast(`前方下坡彎道，建議速度 ${z.lim} km/h，現在開始點放煞車`, 3000); }
+    if (!S.flags['lim' + z.s0] && S.x > z.s0 - 25 && S.x < z.s0) { S.flags['lim' + z.s0] = 1; toast(t('hillAhead', { lim: z.lim }), 3000); }
   }
   return false;
 }
@@ -285,13 +285,13 @@ function rulesCity(c, road, dt) {
   // 紅綠燈：接近時變黃再變紅；在停止線前停好等一下就會變綠
   c.lights.forEach((L, i) => {
     const tl = S.tl[i];
-    if (!tl.trig && S.x > L - 34) { tl.trig = true; tl.ph = 'yellow'; tl.t = 0; toast('前面變黃燈了！準備在停止線前停下（S 煞車、F 放腳）', 3200); }
+    if (!tl.trig && S.x > L - 34) { tl.trig = true; tl.ph = 'yellow'; tl.t = 0; toast(t('cityYellow'), 3200); }
     tl.t += dt;
     if (tl.ph === 'yellow' && tl.t > 2) { tl.ph = 'red'; tl.t = 0; }
     if (tl.ph === 'red') {
       if (S.v < 0.05 && S.x < L && S.x > L - 16) {
         tl.wait += dt;
-        if (tl.wait > 2.5) { tl.ph = 'green'; sfx.ding(); toast('綠燈了！起步（記得先看踏板鐘）', 2600); }
+        if (tl.wait > 2.5) { tl.ph = 'green'; sfx.ding(); toast(t('cityGreen'), 2600); }
       }
       if (S.x > L + 0.3) { S.flags.crashLight = true; crash('redlight'); }
     }
@@ -299,46 +299,46 @@ function rulesCity(c, road, dt) {
   if (S.crashT) return true;
   // 斑馬線行人
   const P = S.ped, zs = c.zebra + 2;
-  if (!P.active && S.x > zs - 26) { P.active = true; P.v = 1.1; toast('斑馬線有行人！按空白鍵按鈴提醒，並減速禮讓', 3200); }
+  if (!P.active && S.x > zs - 26) { P.active = true; P.v = 1.1; toast(t('cityPed'), 3200); }
   if (P.active && !P.gone && Math.abs(S.x - zs) < 0.7 && Math.abs(S.d - P.d) < 0.75) { crash('pedestrian'); return true; }
   if (P.active && !P.judged && S.x > zs + 1) {
     P.judged = true;
-    if (!P.rung && !P.gone) { S.safety -= 10; toast('經過行人前要先按鈴、放慢（安全分數 −10）', 2600); sfx.buzz(); }
-    else if (P.rung) toast('按鈴提醒、禮讓行人，做得好！', 2000);
+    if (!P.rung && !P.gone) { S.safety -= 10; toast(t('cityPedBad'), 2600); sfx.buzz(); }
+    else if (P.rung) toast(t('cityPedGood'), 2000);
   }
   // 轉彎手勢
   for (const cvv of road.curves) {
-    const k = 'sig' + cvv.s, name = cvv.dir > 0 ? '右' : '左', key = cvv.dir > 0 ? 'E' : 'Q';
-    if (!S.flags[k + 'hint'] && S.x > cvv.s - 36) { S.flags[k + 'hint'] = 1; toast(`前面路口${name}轉：先按 ${key} 伸${name}手示意，再傾斜轉彎`, 3400); }
+    const k = 'sig' + cvv.s;
+    if (!S.flags[k + 'hint'] && S.x > cvv.s - 36) { S.flags[k + 'hint'] = 1; toast(t(cvv.dir > 0 ? 'sigHintR' : 'sigHintL'), 3400); }
     if (!S.flags[k] && S.sigT > 0 && S.x > cvv.s - 32 && S.x < cvv.s + 2 && S.t - S.sigT < 0.05) {
-      if (S.sig === cvv.dir) { S.flags[k] = 'ok'; toast('手勢正確！', 1400); }
-      else if (!S.flags[k + 'wrong']) { S.flags[k + 'wrong'] = 1; S.safety -= 5; toast(`方向打錯了，${name}轉要按 ${key}（安全分數 −5）`, 2400); sfx.buzz(); }
+      if (S.sig === cvv.dir) { S.flags[k] = 'ok'; toast(t('sigOk'), 1400); }
+      else if (!S.flags[k + 'wrong']) { S.flags[k + 'wrong'] = 1; S.safety -= 5; toast(t(cvv.dir > 0 ? 'sigWrongR' : 'sigWrongL'), 2400); sfx.buzz(); }
     }
-    if (!S.flags[k] && S.x > cvv.s + 1) { S.flags[k] = 'miss'; S.safety -= 15; toast(`轉彎前忘了打手勢（安全分數 −15）`, 2600); sfx.buzz(); }
+    if (!S.flags[k] && S.x > cvv.s + 1) { S.flags[k] = 'miss'; S.safety -= 15; toast(t('sigMiss'), 2600); sfx.buzz(); }
   }
   // 路邊停車與車門
   const [p0, p1] = c.parked;
-  if (!S.flags.parkHint && S.x > p0 - 18) { S.flags.parkHint = 1; toast('路邊停車區：往左騎一點，和車子保持一公尺', 3200); }
+  if (!S.flags.parkHint && S.x > p0 - 18) { S.flags.parkHint = 1; toast(t('parkHint'), 3200); }
   if (!S.doorOpen && S.x > c.door - 9) { S.doorOpen = true; sfx.creak(); }
   if (S.x > p0 - 2.5 && S.x < p1 + 2.5 && S.d > 2.5) { crash('door'); return true; }
   if (S.doorOpen && Math.abs(S.x - (c.door + 0.9)) < 0.45 && S.d > 1.5) { crash('door'); return true; }
-  if (!S.flags.doorOk && S.x > c.door + 2) { S.flags.doorOk = 1; toast('車門突然打開了，還好你離得夠遠！', 2400); }
+  if (!S.flags.doorOk && S.x > c.door + 2) { S.flags.doorOk = 1; toast(t('doorOk'), 2400); }
   return false;
 }
 
 function rulesNight(c, road) {
-  if (!S.light && S.t > 1.2) toastOnce('light', '天黑又下雨，按 L 打開車燈！', 7, 3000);
+  if (!S.light && S.t > 1.2) toastOnce('light', t('nightLight'), 7, 3000);
   // 輪子壓在水坑、人孔蓋上時抓地力變差，離開就恢復（跟畫面一致）
   S.slick = road.hazards.some(hz => Math.abs(S.x - hz.s) < (hz.k === 'puddle' ? 0.9 : 0.45) && Math.abs(S.d - hz.d) < (hz.k === 'puddle' ? 1.0 : 0.45)) ? 1 : 0;
   for (const hz of road.hazards) {
     if (S.hzDone.has(hz)) continue;
-    if (!S.flags.hzHint && S.light && S.x > hz.s - 18) { S.flags.hzHint = 1; toast('前面有水窪和人孔蓋：經過時保持直立、不要轉向或煞車，也可以繞開', 3400); }
+    if (!S.flags.hzHint && S.light && S.x > hz.s - 18) { S.flags.hzHint = 1; toast(t('hzHint'), 3400); }
     if (Math.abs(S.x - hz.s) < 0.5 && Math.abs(S.d - hz.d) < 0.9) {
       S.hzDone.add(hz);
       // 踩上去不會直接摔：車身會突然晃一下、抓地力暫時大降；傾越多、還在煞車就越危險
       E.hitSlick(S, Math.random, K.front || (K.rear && S.v > 3));
       if (hz.k === 'puddle') { S.v *= 0.9; sfx.splash(); } else sfx.clunk();
-      toastOnce('slick', Math.abs(S.lean) > 0.2 ? '濕滑！傾斜時踩到最危險，快扶正' : '好滑！保持直立就能穩住', 5, 1800);
+      toastOnce('slick', t(Math.abs(S.lean) > 0.2 ? 'slickLean' : 'slickUp'), 5, 1800);
     } else if (S.x > hz.s + 1) S.hzDone.add(hz);
   }
   return false;

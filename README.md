@@ -12,6 +12,8 @@
 
 ### 怎麼開始
 
+介面有英文與繁體中文：瀏覽器是中文就顯示中文，其他語言顯示英文，選單右上角可以切換。
+
 直接用瀏覽器打開 `index.html`，或放到任何靜態網站空間。遊戲進度（通關了哪幾章）存在你自己的瀏覽器裡。
 
 ### 操作
@@ -80,7 +82,8 @@ node --test tests/engine.test.js   # Node 18 以上
 | `engine.js` | 物理：平衡、騎士反射、轉彎、抓地力、速度、檔位、賽道定義 | ✓ |
 | `js/camera.js` | 鏡頭與投影：道路取樣點、把 (沿路距離, 橫向, 高度) 投影到螢幕 | ✓ |
 | `js/core.js` | 共用常數、畫布、存檔、提示訊息 | |
-| `js/data.js` | 場景配色、章節內容、摔車原因 | |
+| `js/data.js` | 場景配色、章節規則與數值 | |
+| `js/i18n.js` | 多語言（英文、繁中）：所有玩家看得到的文字，`[token]` 依鍵盤或觸控換成對應的操作說法 | |
 | `js/road.js` | 依賽道產生路邊物件（樹、柵欄、建築、號誌、轉彎牌、水坑） | |
 | `js/audio.js` | 音效（Web Audio 即時合成，沒有音檔） | |
 | `js/game.js` | 遊戲狀態、按鍵輸入、每一步的物理呼叫、各章規則 | |
@@ -93,7 +96,7 @@ node --test tests/engine.test.js   # Node 18 以上
 | `rider-preview.html` | 騎士造型預覽頁（各角度並排、會動） | |
 | `v1-side/` | 最早的側視版本（保留做紀錄） | |
 
-`engine.js` 和 `js/camera.js` 是 UMD 寫法，瀏覽器裡掛在 `window.BikeEngine` / `window.BikeCamera`，Node 裡用 `require`。其餘檔案是一般的 `<script>`，依 `index.html` 的順序載入，彼此共用頂層的 `const` / `function`。
+`engine.js` 和 `js/camera.js` 是 UMD 寫法，瀏覽器裡掛在 `window.BikeEngine` / `window.BikeCamera`，Node 裡用 `require`。新增或修改文字時改 `js/i18n.js`，兩種語言都要補；操作說法用 `[token]`（見檔案開頭的 `CTL`）。其餘檔案是一般的 `<script>`，依 `index.html` 的順序載入，彼此共用頂層的 `const` / `function`。
 
 ### 每一幀發生什麼事
 

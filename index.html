@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#8FD0E6">
-<title>平衡之道</title>
+<title>平衡之道 · The Way of Balance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap">
@@ -102,6 +102,8 @@
   .btn:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--ink); }
   .btn.primary { background: var(--red); color: #fff; }
   .btn:focus-visible, .ch:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .btn.lang { font-size: 14px; padding: 6px 12px; }
   #skip { position: absolute; right: 16px; top: 64px; font-size: 14px; padding: 8px 14px; box-shadow: 3px 3px 0 var(--ink); }
 
   .stats { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -137,22 +139,23 @@
   <!-- 觸控區（js/touch.js）：左半邊拖曳傾斜、右半邊點擊踩踏、右下按住煞車 -->
   <div id="pad" hidden></div>
   <div id="toast" role="status" aria-live="polite"></div>
-  <button id="skip" class="btn" hidden>跳過重播（Enter）</button>
+  <button id="skip" class="btn" hidden></button>
   <div id="tx" hidden></div>
   <button id="pz" aria-label="暫停" hidden></button>
   <div id="ov" hidden></div>
 </div>
 
-<!-- 每次更新把 ?v= 的數字加一，瀏覽器才不會用到舊檔案。載入順序：物理與鏡頭（純計算，可單獨測試）→ 共用 → 資料 → 道路 → 音效 → 遊戲邏輯 → 觸控 → 騎士 → 繪圖 → 儀表 → 流程 -->
-<script src="engine.js?v=27"></script>
-<script src="js/camera.js?v=27"></script>
-<script src="js/core.js?v=27"></script>
-<script src="js/data.js?v=27"></script>
-<script src="js/road.js?v=27"></script>
-<script src="js/audio.js?v=27"></script>
-<script src="js/game.js?v=27"></script>
-<script src="js/touch.js?v=27"></script>
-<script src="js/rider.js?v=27"></script>
-<script src="js/render-world.js?v=27"></script>
-<script src="js/hud.js?v=27"></script>
-<script src="js/main.js?v=27"></script>
+<!-- 每次更新把 ?v= 的數字加一，瀏覽器才不會用到舊檔案。載入順序：物理與鏡頭（純計算，可單獨測試）→ 共用 → 資料 → 文字（多語言）→ 道路 → 音效 → 遊戲邏輯 → 觸控 → 騎士 → 繪圖 → 儀表 → 流程 -->
+<script src="engine.js?v=28"></script>
+<script src="js/camera.js?v=28"></script>
+<script src="js/core.js?v=28"></script>
+<script src="js/data.js?v=28"></script>
+<script src="js/i18n.js?v=28"></script>
+<script src="js/road.js?v=28"></script>
+<script src="js/audio.js?v=28"></script>
+<script src="js/game.js?v=28"></script>
+<script src="js/touch.js?v=28"></script>
+<script src="js/rider.js?v=28"></script>
+<script src="js/render-world.js?v=28"></script>
+<script src="js/hud.js?v=28"></script>
+<script src="js/main.js?v=28"></script>

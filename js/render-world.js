@@ -247,7 +247,7 @@ function drawSprite(o, p, st) {
         ctx.fillStyle = done ? TEAL : RED; ctx.beginPath();
         for (let j = 0; j < 8; j++) { const a = Math.PI / 8 + j * Math.PI / 4; ctx.lineTo(p.x + 0.38 * s * Math.cos(a), cy + 0.38 * s * Math.sin(a)); }
         ctx.closePath(); ctx.fill();
-        if (s > 8) { ctx.fillStyle = '#fff'; ctx.font = `900 ${0.34 * s}px ${FONT}`; ctx.fillText(done ? '✓' : '停', p.x, cy + 0.02 * s); }
+        if (s > 8) { ctx.fillStyle = '#fff'; ctx.font = `900 ${(done || LANG !== 'en' ? 0.34 : 0.2) * s}px ${FONT}`; ctx.fillText(done ? '✓' : t('signStop'), p.x, cy + 0.02 * s); }
       } else {
         ctx.fillStyle = YEL; ctx.beginPath(); ctx.moveTo(p.x, cy - 0.45 * s); ctx.lineTo(p.x + 0.45 * s, cy); ctx.lineTo(p.x, cy + 0.45 * s); ctx.lineTo(p.x - 0.45 * s, cy); ctx.closePath(); ctx.fill();
         ctx.strokeStyle = INK; ctx.lineWidth = 0.05 * s; ctx.stroke();
@@ -310,8 +310,8 @@ function drawSprite(o, p, st) {
       // 畫在地上的字：依距離壓扁
       if (s < 4) return;
       ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, Math.min(1, V.camH / p.zc));
-      ctx.fillStyle = '#FFFFFF'; ctx.font = `900 ${1.3 * s}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(o.i < S.stopIdx ? '✓' : '停', 0, 0); ctx.restore();
+      ctx.fillStyle = '#FFFFFF'; ctx.font = `900 ${(LANG === 'en' && o.i >= S.stopIdx ? 0.75 : 1.3) * s}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(o.i < S.stopIdx ? '✓' : t('signStop'), 0, 0); ctx.restore();
       break;
     }
     case 'banner': {
@@ -322,7 +322,7 @@ function drawSprite(o, p, st) {
       ctx.fillStyle = RED; ctx.fillRect(l.x, lt, r.x - l.x, lb - lt);
       const cw = (lb - lt) / 2;
       for (let q = 0; q * cw < r.x - l.x; q++) { ctx.fillStyle = q % 2 ? '#fff' : INK; ctx.fillRect(l.x + q * cw, lb - cw * 0.5, Math.min(cw, r.x - l.x - q * cw), cw * 0.5); }
-      if (l.sc > 4) { ctx.fillStyle = '#fff'; ctx.font = `900 ${0.45 * l.sc}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('終　點', (l.x + r.x) / 2, lt + (lb - lt) * 0.38); }
+      if (l.sc > 4) { ctx.fillStyle = '#fff'; ctx.font = `900 ${0.45 * l.sc}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t('signFinish'), (l.x + r.x) / 2, lt + (lb - lt) * 0.38); }
       break;
     }
   }
